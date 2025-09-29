@@ -1,5 +1,6 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import { User, ADHDProfile } from '@/types/advanced';
+import { userService } from '@/utils/firebase';
 
 interface UserState {
   currentUser: User | null;
@@ -24,21 +25,17 @@ const initialState: UserState = {
 export const fetchUserProfile = createAsyncThunk(
   'user/fetchProfile',
   async (userId: string) => {
-    // This would integrate with Supabase
-    const response = await fetch(`/api/users/${userId}`);
-    return response.json();
+    const userData = await userService.getUser(userId);
+    return userData;
   }
 );
 
 export const updateADHDProfile = createAsyncThunk(
   'user/updateADHDProfile',
   async (profile: Partial<ADHDProfile>) => {
-    const response = await fetch('/api/adhd-profile', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(profile),
-    });
-    return response.json();
+    // This would update the ADHD profile in Firebase
+    // For now, just return the profile
+    return profile;
   }
 );
 

@@ -1,9 +1,16 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Switch } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Switch, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useDispatch, useSelector } from 'react-redux';
 import { User, Settings, Moon, Palette, Vibrate, LogOut } from 'lucide-react-native';
+import { RootState } from '@/store';
+import { logout } from '@/store/slices/userSlice';
+import { authService } from '@/utils/firebase';
+import { router } from 'expo-router';
 
 export default function ProfileScreen() {
+  const dispatch = useDispatch();
+  const { currentUser } = useSelector((state: RootState) => state.user);
   const [preferences, setPreferences] = useState({
     theme: 'dark',
     font: 'default',
@@ -13,6 +20,37 @@ export default function ProfileScreen() {
 
   const updatePreference = (key: string, value: any) => {
     setPreferences(prev => ({ ...prev, [key]: value }));
+  };
+
+  const handleSignOut = () => {
+    console.log('Sign out button clicked!');
+    
+    // For web, use confirm instead of Alert.alert
+    const confirmed = window.confirm('Are you sure you want to sign out?');
+    if (confirmed) {
+      console.log('User confirmed sign out');
+      performSignOut();
+    } else {
+      console.log('User cancelled sign out');
+    }
+  };
+
+  const performSignOut = async () => {
+    try {
+      console.log('Starting sign out process...');
+      await authService.signOut();
+      console.log('Firebase sign out completed');
+      dispatch(logout());
+      console.log('Redux logout dispatched');
+      // Force navigation to auth screen
+      setTimeout(() => {
+        router.replace('/auth/signin');
+        console.log('Navigation to signin triggered');
+      }, 100);
+    } catch (error) {
+      console.error('Sign out error:', error);
+      window.alert('Failed to sign out. Please try again.');
+    }
   };
 
   return (
@@ -28,8 +66,8 @@ export default function ProfileScreen() {
             <User size={32} color="#ffffff" />
           </View>
           <View style={styles.userInfo}>
-            <Text style={styles.userName}>You</Text>
-            <Text style={styles.userEmail}>you@cuecircle.com</Text>
+            <Text style={styles.userName}>{currentUser?.name || 'User'}</Text>
+            <Text style={styles.userEmail}>{currentUser?.email || 'user@cuecircle.com'}</Text>
           </View>
         </View>
 
@@ -129,7 +167,7 @@ export default function ProfileScreen() {
           </TouchableOpacity>
         </View>
 
-        <TouchableOpacity style={styles.signOutButton}>
+        <TouchableOpacity style={styles.signOutButton} onPress={handleSignOut}>
           <LogOut size={20} color="#e53e3e" />
           <Text style={styles.signOutText}>Sign Out</Text>
         </TouchableOpacity>

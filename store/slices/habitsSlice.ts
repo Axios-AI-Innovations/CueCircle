@@ -1,5 +1,6 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import { AdvancedHabit, HabitLog, CompletionInsight } from '@/types/advanced';
+import { habitsService, habitLogsService } from '@/utils/firebase';
 
 interface HabitsState {
   habits: AdvancedHabit[];
@@ -21,26 +22,31 @@ const initialState: HabitsState = {
 
 export const syncHabits = createAsyncThunk(
   'habits/sync',
-  async (_, { getState }) => {
+  async (userId: string, { getState }) => {
     const state = getState() as any;
     const { syncQueue } = state.habits;
     
-    // Sync queued logs to server
-    const response = await fetch('/api/habits/sync', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ logs: syncQueue }),
-    });
+    // Sync queued logs to Firebase
+    const promises = syncQueue.map(log => habitLogsService.logHabit(log));
+    await Promise.all(promises);
     
-    return response.json();
+    return { synced: syncQueue.length };
   }
 );
 
-export const analyzeHabitPatterns = createAsyncThunk(
-  'habits/analyzePatterns',
-  async (habitId: string) => {
-    const response = await fetch(`/api/habits/${habitId}/analyze`);
-    return response.json();
+export const loadHabits = createAsyncThunk(
+  'habits/loadHabits',
+  async (userId: string) => {
+    const habits = await habitsService.getHabits(userId);
+    return habits;
+  }
+);
+
+export const createHabit = createAsyncThunk(
+  'habits/createHabit',
+  async (habit: Omit<AdvancedHabit, 'id' | 'created_at'>) => {
+    const habitId = await habitsService.createHabit(habit);
+    return { ...habit, id: habitId, created_at: new Date().toISOString() };
   }
 );
 
@@ -129,14 +135,11 @@ const habitsSlice = createSlice({
           }
         });
       })
-      .addCase(analyzeHabitPatterns.fulfilled, (state, action) => {
-        const { habitId, patterns, recommendations } = action.payload;
-        const habit = state.habits.find(h => h.id === habitId);
-        if (habit) {
-          habit.behavioral_triggers = patterns;
-          // Update optimal timing based on analysis
-          habit.optimal_timing = recommendations.optimalTiming || [];
-        }
+      .addCase(loadHabits.fulfilled, (state, action) => {
+        state.habits = action.payload;
+      })
+      .addCase(createHabit.fulfilled, (state, action) => {
+        state.habits.unshift(action.payload);
       });
   },
 });
@@ -149,5 +152,7 @@ export const {
   linkHabits,
   clearSyncQueue,
 } = habitsSlice.actions;
+
+// Async thunks are already exported above
 
 export default habitsSlice.reducer;

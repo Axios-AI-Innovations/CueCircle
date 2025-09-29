@@ -1,6 +1,9 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, ScrollView, StyleSheet } from 'react-native';
 import { ChevronRight, ChevronLeft, Clock, Zap } from 'lucide-react-native';
+import { useDispatch, useSelector } from 'react-redux';
+import { AppDispatch, RootState } from '@/store';
+import { createHabit } from '@/store/slices/habitsSlice';
 
 interface HabitWizardProps {
   onComplete: () => void;
@@ -19,6 +22,8 @@ interface WizardData {
 }
 
 export function HabitWizard({ onComplete }: HabitWizardProps) {
+  const dispatch = useDispatch<AppDispatch>();
+  const { currentUser } = useSelector((state: RootState) => state.user);
   const [step, setStep] = useState(1);
   const [data, setData] = useState<WizardData>({
     identityGoal: '',
@@ -46,10 +51,45 @@ export function HabitWizard({ onComplete }: HabitWizardProps) {
     }
   };
 
-  const handleComplete = () => {
-    // Here you would save the habit
-    console.log('Creating habit:', data);
-    onComplete();
+  const handleComplete = async () => {
+    if (!currentUser) {
+      console.error('No current user found');
+      return;
+    }
+
+    const habitData = {
+      user_id: currentUser.id,
+      title: data.habitTitle,
+      identity_goal: data.identityGoal,
+      cue_type: data.cueType,
+      cue_details: {
+        time_window: data.cueType === 'time' ? data.timeWindow : undefined,
+        stack_habit: data.cueType === 'habit_stack' ? data.stackHabit : undefined,
+      },
+      starter_version: data.starterVersion,
+      backup_version: data.backupVersion,
+      category: data.category,
+      is_doctor_assigned: data.isDoctorAssigned,
+      active: true,
+      // Advanced habit properties with defaults
+      success_rate: 0,
+      completion_insights: [],
+      linked_habits: [],
+      difficulty_level: 1,
+      xp_value: 10,
+      energy_requirement: 2,
+      optimal_timing: [],
+      behavioral_triggers: [],
+      resilience_score: 0,
+      medical_priority: data.isDoctorAssigned,
+    };
+
+    try {
+      await dispatch(createHabit(habitData));
+      onComplete();
+    } catch (error) {
+      console.error('Failed to create habit:', error);
+    }
   };
 
   const renderStep = () => {

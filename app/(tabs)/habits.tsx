@@ -4,21 +4,79 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Plus, Heart } from 'lucide-react-native';
 import { HabitWizard } from '@/components/HabitWizard';
 import { useSelector, useDispatch } from 'react-redux';
-import { RootState } from '@/store';
+import { RootState, AppDispatch } from '@/store';
 import { HabitCard } from '@/components/HabitCard';
 import { EnhancedRewardSystem } from '@/components/EnhancedRewardSystem';
 import { MicroReward } from '@/types/microHabits';
+import { logHabitCompletion } from '@/store/slices/habitsSlice';
+import { awardXP, initializeXPSystem } from '@/store/slices/xpSlice';
 
 export default function HabitsScreen() {
-  const dispatch = useDispatch();
+  const dispatch = useDispatch<AppDispatch>();
   const [showWizard, setShowWizard] = useState(false);
   const [currentReward, setCurrentReward] = useState<MicroReward | null>(null);
   const { habits, logs } = useSelector((state: RootState) => state.habits);
+  const { currentUser } = useSelector((state: RootState) => state.user);
+  const { xpSystem } = useSelector((state: RootState) => state.xp);
   
   const todayLogs = logs.filter(log => {
     const today = new Date().toDateString();
     return new Date(log.logged_at).toDateString() === today;
   });
+
+  const handleHabitCompletion = (habitId: string, version: 'starter' | 'backup' | 'full') => {
+    const habit = habits.find(h => h.id === habitId);
+    if (!habit) return;
+
+    const insight = {
+      date: new Date().toISOString(),
+      completion_method: 'tap' as const,
+      energy_level: Math.floor(Math.random() * 5) + 1, // Mock energy level
+      mood_rating: Math.floor(Math.random() * 5) + 1, // Mock mood rating
+      context_tags: ['mobile', 'quick_completion'],
+      time_to_complete: Math.floor(Math.random() * 60) + 10, // Mock completion time
+      difficulty_perceived: Math.floor(Math.random() * 5) + 1, // Mock difficulty
+    };
+
+    dispatch(logHabitCompletion({
+      habitId,
+      completed: true,
+      version,
+      insight,
+    }));
+
+    // Initialize XP system if not already done
+    if (!xpSystem && currentUser) {
+      dispatch(initializeXPSystem({ userId: currentUser.id }));
+    }
+
+    // Award XP based on version and habit difficulty
+    const baseXP = version === 'full' ? habit.xp_value : 
+                   version === 'starter' ? Math.floor(habit.xp_value * 0.8) : 
+                   Math.floor(habit.xp_value * 0.6);
+
+    dispatch(awardXP({
+      baseXP,
+      source: `habit_${habitId}`,
+      difficulty: habit.difficulty_level,
+      energyMatch: Math.random() > 0.5, // Mock energy match
+      timingBonus: Math.random() > 0.7, // Mock timing bonus
+      streakMultiplier: xpSystem?.streak_multiplier || 1,
+    }));
+
+    // Trigger a reward
+    const reward: MicroReward = {
+      id: `reward_${Date.now()}`,
+      type: 'xp',
+      value: baseXP,
+      title: 'Habit Completed! 🎉',
+      description: `You completed the ${version} version!`,
+      rarity: 'common',
+      visual_effect: 'sparkle',
+    };
+
+    setCurrentReward(reward);
+  };
   return (
     <>
       <SafeAreaView style={styles.container}>
@@ -56,7 +114,7 @@ export default function HabitsScreen() {
                   key={habit.id}
                   habit={habit}
                   todayLog={todayLogs.find(log => log.habit_id === habit.id)}
-                  onComplete={() => {}}
+                  onComplete={handleHabitCompletion}
                 />
               ))}
             </View>
