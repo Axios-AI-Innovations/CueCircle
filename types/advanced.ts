@@ -1,7 +1,7 @@
-export interface ADHDProfile {
+export interface PersonalProfile {
   id: string;
   user_id: string;
-  challenges: ADHDChallenge[];
+  challenges: PersonalChallenge[];
   energy_patterns: EnergyPattern[];
   motivation_styles: MotivationStyle[];
   optimal_times: TimeWindow[];
@@ -11,7 +11,7 @@ export interface ADHDProfile {
   updated_at: string;
 }
 
-export interface ADHDChallenge {
+export interface PersonalChallenge {
   type: 'executive_function' | 'time_blindness' | 'emotional_regulation' | 'working_memory' | 'attention_regulation';
   severity: 1 | 2 | 3 | 4 | 5;
   accommodations: string[];
@@ -185,7 +185,7 @@ export interface AnalyticsDashboard {
   energy_correlations: EnergyCorrelation[];
   optimal_timing_analysis: OptimalTimingAnalysis;
   habit_performance_comparison: HabitPerformanceComparison[];
-  adhd_specific_insights: ADHDSpecificInsight[];
+  personalized_insights: PersonalizedInsight[];
   medical_report_data: MedicalReportData;
 }
 
@@ -221,7 +221,7 @@ export interface HabitPerformanceComparison {
   trend: 'improving' | 'stable' | 'declining';
 }
 
-export interface ADHDSpecificInsight {
+export interface PersonalizedInsight {
   insight_type: 'executive_function' | 'attention_regulation' | 'emotional_regulation' | 'working_memory';
   description: string;
   impact_on_habits: string[];

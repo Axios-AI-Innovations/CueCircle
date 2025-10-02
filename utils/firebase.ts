@@ -58,6 +58,11 @@ export const authService = {
     return await signOut(auth);
   },
 
+  async resetPassword(email: string) {
+    const { sendPasswordResetEmail } = await import('firebase/auth');
+    return await sendPasswordResetEmail(auth, email);
+  },
+
   onAuthStateChange(callback: (user: User | null) => void) {
     return onAuthStateChanged(auth, callback);
   }

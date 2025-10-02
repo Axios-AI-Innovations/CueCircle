@@ -1,6 +1,7 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import { AdvancedHabit, HabitLog, CompletionInsight } from '@/types/advanced';
 import { habitsService, habitLogsService } from '@/utils/firebase';
+import { awardXP } from './xpSlice';
 
 interface HabitsState {
   habits: AdvancedHabit[];
@@ -50,6 +51,46 @@ export const createHabit = createAsyncThunk(
   }
 );
 
+export const completeHabitWithXP = createAsyncThunk(
+  'habits/completeHabitWithXP',
+  async (payload: {
+    habitId: string;
+    insight: CompletionInsight;
+  }, { dispatch, getState }) => {
+    const { habitId, insight } = payload;
+    
+    // First complete the habit
+    dispatch(completeHabit({ habitId, insight }));
+    
+    // Then award XP
+    const state = getState() as any;
+    const habit = state.habits.habits.find((h: any) => h.id === habitId);
+    
+    if (habit) {
+      const baseXP = habit.xp_value || 10;
+      const difficulty = habit.difficulty_level || 1;
+      const energyMatch = insight.energy_level >= 4;
+      const timingBonus = new Date().getHours() >= 6 && new Date().getHours() <= 10;
+      
+      // Calculate streak multiplier
+      const recentLogs = state.habits.logs
+        .filter((log: any) => log.habit_id === habitId)
+        .slice(-30);
+      const streakCount = recentLogs.filter((log: any) => log.completed).length;
+      const streakMultiplier = Math.min(1 + (streakCount * 0.1), 3);
+      
+      dispatch(awardXP({
+        baseXP,
+        source: `habit_${habitId}`,
+        difficulty,
+        energyMatch,
+        timingBonus,
+        streakMultiplier,
+      }));
+    }
+  }
+);
+
 const habitsSlice = createSlice({
   name: 'habits',
   initialState,
@@ -96,6 +137,18 @@ const habitsSlice = createSlice({
           .slice(-30); // Last 30 completions
         
         habit.success_rate = recentLogs.filter(log => log.completed).length / recentLogs.length;
+        
+        // Award XP for habit completion
+        const baseXP = habit.xp_value || 10;
+        const difficultyMultiplier = habit.difficulty_level || 1;
+        const energyMatch = insight.energy_level >= 4; // High energy completion
+        const timingBonus = new Date().getHours() >= 6 && new Date().getHours() <= 10; // Morning completion
+        
+        // Calculate streak multiplier (simplified)
+        const streakCount = recentLogs.filter(log => log.completed).length;
+        const streakMultiplier = Math.min(1 + (streakCount * 0.1), 3); // Max 3x multiplier
+        
+        // XP will be awarded via the XP slice when this action is dispatched
       }
     },
     updateHabitDifficulty: (state, action: PayloadAction<{

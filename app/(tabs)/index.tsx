@@ -4,14 +4,16 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useSelector } from 'react-redux';
 import { RootState } from '@/store';
 import { HabitCard } from '@/components/HabitCard';
-import { Plus, Target, TrendingUp, Star, Shield, Zap } from 'lucide-react-native';
+import XPDisplay from '@/components/XPDisplay';
+import { Plus, Target, TrendingUp, Star, Shield, Zap, Trophy } from 'lucide-react-native';
 import { useDispatch } from 'react-redux';
 import { toggleCrisisMode, toggleHyperfocusMode } from '@/store/slices/userSlice';
+import { router } from 'expo-router';
 
 export default function HomeScreen() {
   const dispatch = useDispatch();
   const { habits, logs } = useSelector((state: RootState) => state.habits);
-  const { currentUser, adhdProfile, crisisMode, hyperfocusMode } = useSelector((state: RootState) => state.user);
+  const { currentUser, personalProfile, crisisMode, hyperfocusMode } = useSelector((state: RootState) => state.user);
   const { xpSystem } = useSelector((state: RootState) => state.xp);
 
   // Get today's logs
@@ -21,12 +23,45 @@ export default function HomeScreen() {
   });
 
   // Calculate today's progress
-  const todayHabits = habits.filter(habit => habit.active);
+  const todayHabits = habits.filter(habit => (habit as any).active);
   const completedToday = todayLogs.filter(log => log.completed).length;
   const completionRate = todayHabits.length > 0 ? (completedToday / todayHabits.length) * 100 : 0;
 
-  // Get current streak (simplified)
-  const currentStreak = 7; // This would be calculated from logs
+  // Calculate actual streak from logs
+  const calculateStreak = () => {
+    if (logs.length === 0) return 0;
+    
+    // Sort logs by date (most recent first)
+    const sortedLogs = [...logs].sort((a, b) => 
+      new Date(b.logged_at).getTime() - new Date(a.logged_at).getTime()
+    );
+    
+    let streak = 0;
+    let currentDate = new Date();
+    currentDate.setHours(0, 0, 0, 0);
+    
+    for (const log of sortedLogs) {
+      const logDate = new Date(log.logged_at);
+      logDate.setHours(0, 0, 0, 0);
+      
+      const daysDiff = Math.floor((currentDate.getTime() - logDate.getTime()) / (1000 * 60 * 60 * 24));
+      
+      if (daysDiff === streak) {
+        if (log.completed) {
+          streak++;
+          currentDate.setDate(currentDate.getDate() - 1);
+        } else {
+          break;
+        }
+      } else if (daysDiff > streak) {
+        break;
+      }
+    }
+    
+    return streak;
+  };
+  
+  const currentStreak = calculateStreak();
 
   return (
     <SafeAreaView style={styles.container}>
@@ -41,19 +76,7 @@ export default function HomeScreen() {
             </Text>
             <Text style={styles.subtitle}>How are you feeling today?</Text>
           </View>
-          {xpSystem && (
-            <View style={styles.xpDisplay}>
-              <Text style={styles.xpLabel}>Level {xpSystem.level}</Text>
-              <View style={styles.xpBar}>
-                <View 
-                  style={[
-                    styles.xpBarFill,
-                    { width: `${(xpSystem.total_xp % (xpSystem.level * 100)) / (xpSystem.level * 100) * 100}%` }
-                  ]}
-                />
-              </View>
-            </View>
-          )}
+          <XPDisplay showDetails={false} onPress={() => router.push('/achievements')} />
         </View>
 
         {/* Progress Overview */}
@@ -118,14 +141,20 @@ export default function HomeScreen() {
             <View style={styles.habitsList}>
               {todayHabits.slice(0, 5).map(habit => (
                 <HabitCard
-                  key={habit.id}
+                  key={(habit as any).id}
                   habit={habit}
-                  todayLog={todayLogs.find(log => log.habit_id === habit.id)}
-                  onComplete={() => {}} // This would be connected to the completion handler
+                  todayLog={todayLogs.find(log => log.habit_id === (habit as any).id)}
+                  onComplete={(habitId) => {
+                    // Navigate to habits tab to complete the habit
+                    router.push('/habits');
+                  }}
                 />
               ))}
               {todayHabits.length > 5 && (
-                <TouchableOpacity style={styles.viewAllButton}>
+                <TouchableOpacity 
+                  style={styles.viewAllButton}
+                  onPress={() => router.push('/habits')}
+                >
                   <Text style={styles.viewAllText}>
                     View all {todayHabits.length} habits
                   </Text>
@@ -139,20 +168,26 @@ export default function HomeScreen() {
         <View style={styles.quickActions}>
           <Text style={styles.sectionTitle}>Quick Actions</Text>
           <View style={styles.actionButtons}>
-            <TouchableOpacity style={styles.actionButton}>
+            <TouchableOpacity 
+              style={styles.actionButton}
+              onPress={() => router.push('/progress')}
+            >
               <Star size={24} color="#ed8936" />
               <Text style={styles.actionButtonText}>Log Energy</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.actionButton}>
+            <TouchableOpacity 
+              style={styles.actionButton}
+              onPress={() => router.push('/progress')}
+            >
               <TrendingUp size={24} color="#805ad5" />
               <Text style={styles.actionButtonText}>View Progress</Text>
             </TouchableOpacity>
           </View>
         </View>
 
-        {/* ADHD Mode Toggles */}
+        {/* Adaptive Mode Toggles */}
         <View style={styles.modeSection}>
-          <Text style={styles.sectionTitle}>ADHD Modes</Text>
+          <Text style={styles.sectionTitle}>Adaptive Modes</Text>
           <View style={styles.modeButtons}>
             <TouchableOpacity 
               style={[styles.modeButton, crisisMode && styles.activeModeButton]}
@@ -182,10 +217,10 @@ export default function HomeScreen() {
           </View>
         </View>
 
-        {/* ADHD Profile Status */}
-        {adhdProfile && (
+        {/* Personal Profile Status */}
+        {personalProfile && (
           <View style={styles.adhdStatus}>
-            <Text style={styles.adhdStatusTitle}>Your ADHD Profile</Text>
+            <Text style={styles.adhdStatusTitle}>Your Personal Profile</Text>
             <Text style={styles.adhdStatusText}>
               Optimized for your unique patterns and preferences.
             </Text>

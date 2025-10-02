@@ -122,5 +122,4 @@ export interface ProgressCelebration {
   celebration_type: 'animation' | 'sound' | 'haptic' | 'visual' | 'unlock';
   intensity: 'subtle' | 'moderate' | 'exciting' | 'epic';
   personalized: boolean;
-  adhd_optimized: boolean;
 }

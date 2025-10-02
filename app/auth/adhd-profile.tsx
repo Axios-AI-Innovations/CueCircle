@@ -1,20 +1,26 @@
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useDispatch } from 'react-redux';
-import { setADHDProfile } from '@/store/slices/userSlice';
+import { useDispatch, useSelector } from 'react-redux';
+import { setPersonalProfile } from '@/store/slices/userSlice';
 import { router } from 'expo-router';
-import { Brain, Clock, Zap, Heart, Shield, Check } from 'lucide-react-native';
+import { Brain, Clock, Zap, Heart, Shield, Check, Sun, Moon, Star, Target } from 'lucide-react-native';
+import { RootState } from '@/store';
+import { PersonalProfile, EnergyPattern, MotivationStyle } from '@/types/advanced';
 
-interface ADHDChallenge {
+interface PersonalChallenge {
   type: 'executive_function' | 'time_blindness' | 'emotional_regulation' | 'working_memory' | 'attention_regulation';
   severity: 1 | 2 | 3 | 4 | 5;
 }
 
-export default function ADHDProfileScreen() {
+export default function PersonalProfileScreen() {
   const dispatch = useDispatch();
-  const [selectedChallenges, setSelectedChallenges] = useState<ADHDChallenge[]>([]);
+  const [selectedChallenges, setSelectedChallenges] = useState<PersonalChallenge[]>([]);
+  const [energyPatterns, setEnergyPatterns] = useState<EnergyPattern[]>([]);
+  const [motivationStyles, setMotivationStyles] = useState<MotivationStyle[]>([]);
   const [currentStep, setCurrentStep] = useState(1);
+
+  const { currentUser } = useSelector((state: RootState) => state.user);
 
   const challenges = [
     {
@@ -49,6 +55,48 @@ export default function ADHDProfileScreen() {
     },
   ];
 
+  const energyTimes = [
+    { time: '6:00 AM', label: 'Early Morning', icon: <Sun size={20} color="#f6ad55" /> },
+    { time: '9:00 AM', label: 'Morning', icon: <Sun size={20} color="#f6ad55" /> },
+    { time: '12:00 PM', label: 'Midday', icon: <Sun size={20} color="#f6ad55" /> },
+    { time: '3:00 PM', label: 'Afternoon', icon: <Sun size={20} color="#f6ad55" /> },
+    { time: '6:00 PM', label: 'Evening', icon: <Moon size={20} color="#805ad5" /> },
+    { time: '9:00 PM', label: 'Night', icon: <Moon size={20} color="#805ad5" /> },
+  ];
+
+  const motivationTypes = [
+    {
+      type: 'novelty' as const,
+      title: 'Novelty',
+      description: 'New experiences and variety',
+      icon: <Star size={20} color="#48bb78" />,
+    },
+    {
+      type: 'urgency' as const,
+      title: 'Urgency',
+      description: 'Deadlines and time pressure',
+      icon: <Clock size={20} color="#e53e3e" />,
+    },
+    {
+      type: 'interest' as const,
+      title: 'Interest',
+      description: 'Personal passion and curiosity',
+      icon: <Heart size={20} color="#ed8936" />,
+    },
+    {
+      type: 'challenge' as const,
+      title: 'Challenge',
+      description: 'Difficulty and growth',
+      icon: <Target size={20} color="#805ad5" />,
+    },
+    {
+      type: 'social' as const,
+      title: 'Social',
+      description: 'Community and connection',
+      icon: <Zap size={20} color="#38a169" />,
+    },
+  ];
+
   const handleChallengeSelect = (challenge: typeof challenges[0]) => {
     const existingIndex = selectedChallenges.findIndex(c => c.type === challenge.type);
     
@@ -67,19 +115,49 @@ export default function ADHDProfileScreen() {
     );
   };
 
+  const handleEnergyLevelSelect = (timeOfDay: string, energyLevel: 1 | 2 | 3 | 4 | 5) => {
+    setEnergyPatterns(prev => {
+      const existing = prev.find(p => p.time_of_day === timeOfDay);
+      if (existing) {
+        return prev.map(p => p.time_of_day === timeOfDay ? { ...p, energy_level: energyLevel } : p);
+      } else {
+        return [...prev, {
+          time_of_day: timeOfDay,
+          energy_level: energyLevel,
+          consistency_score: 0,
+          sample_size: 0,
+        }];
+      }
+    });
+  };
+
+  const handleMotivationSelect = (motivationType: typeof motivationTypes[0]) => {
+    const existingIndex = motivationStyles.findIndex(m => m.type === motivationType.type);
+    
+    if (existingIndex >= 0) {
+      setMotivationStyles(prev => prev.filter((_, index) => index !== existingIndex));
+    } else {
+      setMotivationStyles(prev => [...prev, {
+        type: motivationType.type,
+        effectiveness: 3,
+        context_dependent: false,
+      }]);
+    }
+  };
+
   const handleComplete = () => {
     if (selectedChallenges.length === 0) {
       Alert.alert('No Challenges Selected', 'Please select at least one challenge to continue');
       return;
     }
 
-    // Create ADHD profile
-    const adhdProfile = {
-      id: `adhd_${Date.now()}`,
-      user_id: 'current_user', // This would come from auth state
+    // Create personal profile
+    const personalProfile: PersonalProfile = {
+      id: `profile_${Date.now()}`,
+      user_id: currentUser?.id || 'current_user',
       challenges: selectedChallenges,
-      energy_patterns: [],
-      motivation_styles: [],
+      energy_patterns: energyPatterns,
+      motivation_styles: motivationStyles,
       optimal_times: [],
       crisis_mode_enabled: false,
       hyperfocus_mode_enabled: false,
@@ -87,11 +165,11 @@ export default function ADHDProfileScreen() {
       updated_at: new Date().toISOString(),
     };
 
-    dispatch(setADHDProfile(adhdProfile));
+    dispatch(setPersonalProfile(personalProfile));
 
     Alert.alert(
       'Profile Complete! 🎉',
-      'Your ADHD profile has been set up. CueCircle will now personalize your experience.',
+      'Your personal profile has been set up. CueCircle will now personalize your experience.',
       [
         {
           text: 'Get Started',
@@ -181,6 +259,89 @@ export default function ADHDProfileScreen() {
     </View>
   );
 
+  const renderStep3 = () => (
+    <View style={styles.stepContainer}>
+      <Text style={styles.stepTitle}>When do you feel most energetic?</Text>
+      <Text style={styles.stepSubtitle}>
+        Rate your energy level at different times of day (1 = very low, 5 = very high)
+      </Text>
+      
+      <View style={styles.energyList}>
+        {energyTimes.map((timeSlot) => {
+          const currentPattern = energyPatterns.find(p => p.time_of_day === timeSlot.time);
+          return (
+            <View key={timeSlot.time} style={styles.energyCard}>
+              <View style={styles.energyHeader}>
+                <View style={styles.energyIcon}>
+                  {timeSlot.icon}
+                </View>
+                <View style={styles.energyInfo}>
+                  <Text style={styles.energyTime}>{timeSlot.time}</Text>
+                  <Text style={styles.energyLabel}>{timeSlot.label}</Text>
+                </View>
+              </View>
+              
+              <View style={styles.energyButtons}>
+                {[1, 2, 3, 4, 5].map((level) => (
+                  <TouchableOpacity
+                    key={level}
+                    style={[
+                      styles.energyButton,
+                      currentPattern?.energy_level === level && styles.selectedEnergy
+                    ]}
+                    onPress={() => handleEnergyLevelSelect(timeSlot.time, level as 1 | 2 | 3 | 4 | 5)}
+                  >
+                    <Text style={[
+                      styles.energyButtonText,
+                      currentPattern?.energy_level === level && styles.selectedEnergyText
+                    ]}>
+                      {level}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+          );
+        })}
+      </View>
+    </View>
+  );
+
+  const renderStep4 = () => (
+    <View style={styles.stepContainer}>
+      <Text style={styles.stepTitle}>What motivates you most?</Text>
+      <Text style={styles.stepSubtitle}>
+        Select the motivation styles that work best for you
+      </Text>
+      
+      <View style={styles.motivationList}>
+        {motivationTypes.map((motivation) => {
+          const isSelected = motivationStyles.some(m => m.type === motivation.type);
+          return (
+            <TouchableOpacity
+              key={motivation.type}
+              style={[styles.motivationCard, isSelected && styles.selectedMotivation]}
+              onPress={() => handleMotivationSelect(motivation)}
+            >
+              <View style={styles.motivationHeader}>
+                <View style={styles.motivationIcon}>
+                  {motivation.icon}
+                </View>
+                <View style={styles.motivationInfo}>
+                  <Text style={styles.motivationTitle}>{motivation.title}</Text>
+                  <Text style={styles.motivationDescription}>{motivation.description}</Text>
+                </View>
+                {isSelected && (
+                  <Check size={20} color="#48bb78" />
+                )}
+              </View>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+    </View>
+  );
+
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
@@ -189,7 +350,7 @@ export default function ADHDProfileScreen() {
             <Brain size={32} color="#48bb78" />
             <Text style={styles.logoText}>CueCircle</Text>
           </View>
-          <Text style={styles.title}>ADHD Profile Setup</Text>
+          <Text style={styles.title}>Personal Profile Setup</Text>
           <Text style={styles.subtitle}>
             Help us understand your unique needs
           </Text>
@@ -200,14 +361,17 @@ export default function ADHDProfileScreen() {
             <View 
               style={[
                 styles.progressFill,
-                { width: `${(currentStep / 2) * 100}%` }
+                { width: `${(currentStep / 4) * 100}%` }
               ]} 
             />
           </View>
-          <Text style={styles.progressText}>Step {currentStep} of 2</Text>
+          <Text style={styles.progressText}>Step {currentStep} of 4</Text>
         </View>
 
-        {currentStep === 1 ? renderStep1() : renderStep2()}
+        {currentStep === 1 && renderStep1()}
+        {currentStep === 2 && renderStep2()}
+        {currentStep === 3 && renderStep3()}
+        {currentStep === 4 && renderStep4()}
 
         <View style={styles.navigation}>
           {currentStep > 1 && (
@@ -228,13 +392,17 @@ export default function ADHDProfileScreen() {
                   return;
                 }
                 setCurrentStep(2);
+              } else if (currentStep === 2) {
+                setCurrentStep(3);
+              } else if (currentStep === 3) {
+                setCurrentStep(4);
               } else {
                 handleComplete();
               }
             }}
           >
             <Text style={styles.nextButtonText}>
-              {currentStep === 2 ? 'Complete Setup' : 'Continue'}
+              {currentStep === 4 ? 'Complete Setup' : 'Continue'}
             </Text>
           </TouchableOpacity>
         </View>
@@ -426,5 +594,97 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontSize: 16,
     fontWeight: '600',
+  },
+  // Energy patterns styles
+  energyList: {
+    gap: 12,
+  },
+  energyCard: {
+    backgroundColor: '#2d3748',
+    borderRadius: 12,
+    padding: 16,
+  },
+  energyHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  energyIcon: {
+    marginRight: 12,
+  },
+  energyInfo: {
+    flex: 1,
+  },
+  energyTime: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#ffffff',
+    marginBottom: 2,
+  },
+  energyLabel: {
+    fontSize: 14,
+    color: '#a0aec0',
+  },
+  energyButtons: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  energyButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#4a5568',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: 'transparent',
+  },
+  selectedEnergy: {
+    backgroundColor: '#f6ad55',
+    borderColor: '#ed8936',
+  },
+  energyButtonText: {
+    color: '#a0aec0',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  selectedEnergyText: {
+    color: '#ffffff',
+  },
+  // Motivation styles
+  motivationList: {
+    gap: 12,
+  },
+  motivationCard: {
+    backgroundColor: '#2d3748',
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 2,
+    borderColor: 'transparent',
+  },
+  selectedMotivation: {
+    borderColor: '#48bb78',
+    backgroundColor: '#48bb7820',
+  },
+  motivationHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  motivationIcon: {
+    marginRight: 12,
+  },
+  motivationInfo: {
+    flex: 1,
+  },
+  motivationTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#ffffff',
+    marginBottom: 4,
+  },
+  motivationDescription: {
+    fontSize: 14,
+    color: '#a0aec0',
+    lineHeight: 20,
   },
 });

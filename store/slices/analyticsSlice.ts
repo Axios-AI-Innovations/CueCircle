@@ -1,5 +1,5 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
-import { AnalyticsDashboard, SuccessPattern, EnergyCorrelation, OptimalTimingAnalysis, HabitPerformanceComparison, ADHDSpecificInsight, MedicalReportData } from '@/types/advanced';
+import { AnalyticsDashboard, SuccessPattern, EnergyCorrelation, OptimalTimingAnalysis, HabitPerformanceComparison, PersonalizedInsight, MedicalReportData } from '@/types/advanced';
 
 interface AnalyticsState {
   dashboard: AnalyticsDashboard | null;
@@ -61,9 +61,9 @@ const analyticsSlice = createSlice({
         state.dashboard.habit_performance_comparison = action.payload;
       }
     },
-    addADHDInsight: (state, action: PayloadAction<ADHDSpecificInsight>) => {
+    addPersonalizedInsight: (state, action: PayloadAction<PersonalizedInsight>) => {
       if (state.dashboard) {
-        state.dashboard.adhd_specific_insights.push(action.payload);
+        state.dashboard.personalized_insights.push(action.payload);
       }
     },
     clearAnalytics: (state) => {
@@ -104,7 +104,7 @@ export const {
   updateEnergyCorrelations,
   updateOptimalTiming,
   updateHabitComparisons,
-  addADHDInsight,
+  addPersonalizedInsight,
   clearAnalytics,
   setTimePeriod,
 } = analyticsSlice.actions;

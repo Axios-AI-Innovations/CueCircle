@@ -1,10 +1,10 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
-import { User, ADHDProfile } from '@/types/advanced';
+import { User, PersonalProfile } from '@/types/advanced';
 import { userService } from '@/utils/firebase';
 
 interface UserState {
   currentUser: User | null;
-  adhdProfile: ADHDProfile | null;
+  personalProfile: PersonalProfile | null;
   isAuthenticated: boolean;
   loading: boolean;
   error: string | null;
@@ -14,7 +14,7 @@ interface UserState {
 
 const initialState: UserState = {
   currentUser: null,
-  adhdProfile: null,
+  personalProfile: null,
   isAuthenticated: false,
   loading: false,
   error: null,
@@ -30,10 +30,10 @@ export const fetchUserProfile = createAsyncThunk(
   }
 );
 
-export const updateADHDProfile = createAsyncThunk(
-  'user/updateADHDProfile',
-  async (profile: Partial<ADHDProfile>) => {
-    // This would update the ADHD profile in Firebase
+export const updatePersonalProfile = createAsyncThunk(
+  'user/updatePersonalProfile',
+  async (profile: Partial<PersonalProfile>) => {
+    // This would update the personal profile in Firebase
     // For now, just return the profile
     return profile;
   }
@@ -47,8 +47,8 @@ const userSlice = createSlice({
       state.currentUser = action.payload;
       state.isAuthenticated = true;
     },
-    setADHDProfile: (state, action: PayloadAction<ADHDProfile>) => {
-      state.adhdProfile = action.payload;
+    setPersonalProfile: (state, action: PayloadAction<PersonalProfile>) => {
+      state.personalProfile = action.payload;
     },
     toggleCrisisMode: (state) => {
       state.crisisMode = !state.crisisMode;
@@ -58,7 +58,7 @@ const userSlice = createSlice({
     },
     logout: (state) => {
       state.currentUser = null;
-      state.adhdProfile = null;
+      state.personalProfile = null;
       state.isAuthenticated = false;
       state.crisisMode = false;
       state.hyperfocusMode = false;
@@ -75,7 +75,7 @@ const userSlice = createSlice({
       .addCase(fetchUserProfile.fulfilled, (state, action) => {
         state.loading = false;
         state.currentUser = action.payload.user;
-        state.adhdProfile = action.payload.adhdProfile;
+        state.personalProfile = action.payload.personalProfile;
       })
       .addCase(fetchUserProfile.rejected, (state, action) => {
         state.loading = false;
@@ -86,7 +86,7 @@ const userSlice = createSlice({
 
 export const { 
   setUser, 
-  setADHDProfile, 
+  setPersonalProfile, 
   toggleCrisisMode, 
   toggleHyperfocusMode, 
   logout, 

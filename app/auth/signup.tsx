@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Alert } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Alert, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useDispatch } from 'react-redux';
 import { authService } from '@/utils/firebase';
@@ -17,9 +17,39 @@ export default function SignUpScreen() {
     confirmPassword: '',
   });
 
+  const validateEmail = (email: string) => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  };
+
+  const validatePassword = (password: string) => {
+    return password.length >= 6;
+  };
+
   const handleSignUp = async () => {
-    if (!formData.name || !formData.email || !formData.password) {
-      Alert.alert('Missing Information', 'Please fill in all fields');
+    // Validation
+    if (!formData.name.trim()) {
+      Alert.alert('Missing Information', 'Please enter your name');
+      return;
+    }
+
+    if (!formData.email.trim()) {
+      Alert.alert('Missing Information', 'Please enter your email');
+      return;
+    }
+
+    if (!validateEmail(formData.email)) {
+      Alert.alert('Invalid Email', 'Please enter a valid email address');
+      return;
+    }
+
+    if (!formData.password) {
+      Alert.alert('Missing Information', 'Please enter a password');
+      return;
+    }
+
+    if (!validatePassword(formData.password)) {
+      Alert.alert('Password Too Short', 'Password must be at least 6 characters');
       return;
     }
 
@@ -28,17 +58,12 @@ export default function SignUpScreen() {
       return;
     }
 
-    if (formData.password.length < 6) {
-      Alert.alert('Password Too Short', 'Password must be at least 6 characters');
-      return;
-    }
-
     setLoading(true);
 
     try {
       const user = await authService.signUp(formData.email, formData.password, {
-        name: formData.name,
-        email: formData.email,
+        name: formData.name.trim(),
+        email: formData.email.trim(),
         preferences: {
           theme: 'light',
           font: 'default',
@@ -50,7 +75,7 @@ export default function SignUpScreen() {
       dispatch(setUser({
         id: user.uid,
         email: user.email || '',
-        name: formData.name,
+        name: formData.name.trim(),
         created_at: new Date().toISOString(),
         preferences: {
           theme: 'light',
@@ -71,7 +96,19 @@ export default function SignUpScreen() {
       );
     } catch (error: any) {
       console.error('Sign up error:', error);
-      Alert.alert('Sign Up Failed', error.message || 'Something went wrong');
+      let errorMessage = 'Something went wrong';
+      
+      if (error.code === 'auth/email-already-in-use') {
+        errorMessage = 'An account with this email already exists';
+      } else if (error.code === 'auth/invalid-email') {
+        errorMessage = 'Invalid email address';
+      } else if (error.code === 'auth/weak-password') {
+        errorMessage = 'Password is too weak. Please choose a stronger password';
+      } else if (error.code === 'auth/network-request-failed') {
+        errorMessage = 'Network error. Please check your connection';
+      }
+      
+      Alert.alert('Sign Up Failed', errorMessage);
     } finally {
       setLoading(false);
     }
@@ -87,7 +124,7 @@ export default function SignUpScreen() {
           </View>
           <Text style={styles.title}>Create Your Account</Text>
           <Text style={styles.subtitle}>
-            Join a supportive community designed for ADHD minds
+            Join a supportive community designed for your unique needs
           </Text>
         </View>
 
@@ -146,9 +183,11 @@ export default function SignUpScreen() {
             onPress={handleSignUp}
             disabled={loading}
           >
-            <Text style={styles.signUpButtonText}>
-              {loading ? 'Creating Account...' : 'Create Account'}
-            </Text>
+            {loading ? (
+              <ActivityIndicator size="small" color="#ffffff" />
+            ) : (
+              <Text style={styles.signUpButtonText}>Create Account</Text>
+            )}
           </TouchableOpacity>
 
           <View style={styles.signInPrompt}>
@@ -163,7 +202,7 @@ export default function SignUpScreen() {
           <Text style={styles.featuresTitle}>What you'll get:</Text>
           <View style={styles.featureItem}>
             <Brain size={20} color="#48bb78" />
-            <Text style={styles.featureText}>ADHD-friendly habit building</Text>
+            <Text style={styles.featureText}>Adaptive habit building</Text>
           </View>
           <View style={styles.featureItem}>
             <Shield size={20} color="#48bb78" />

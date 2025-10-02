@@ -58,7 +58,12 @@ export default function ProfileScreen() {
       <ScrollView>
         <View style={styles.header}>
           <Text style={styles.title}>Profile</Text>
-          <Settings size={24} color="#a0aec0" />
+          <TouchableOpacity 
+            style={styles.settingsButton}
+            onPress={() => router.push('/profile-settings')}
+          >
+            <Settings size={24} color="#a0aec0" />
+          </TouchableOpacity>
         </View>
 
         <View style={styles.userSection}>
@@ -87,7 +92,7 @@ export default function ProfileScreen() {
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>ADHD-Friendly Settings</Text>
+          <Text style={styles.sectionTitle}>Accessibility Settings</Text>
           
           <View style={styles.settingItem}>
             <View style={styles.settingInfo}>
@@ -148,6 +153,7 @@ export default function ProfileScreen() {
           </View>
         </View>
 
+
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Account</Text>
           
@@ -174,7 +180,7 @@ export default function ProfileScreen() {
 
         <View style={styles.footer}>
           <Text style={styles.footerText}>
-            CueCircle helps you build habits that stick, designed specifically for ADHD minds.
+            CueCircle helps you build habits that stick, designed for your unique needs.
           </Text>
           <Text style={styles.versionText}>Version 1.0.0</Text>
         </View>
@@ -199,6 +205,9 @@ const styles = StyleSheet.create({
     fontSize: 28,
     fontWeight: '800',
     color: '#ffffff',
+  },
+  settingsButton: {
+    padding: 8,
   },
   userSection: {
     flexDirection: 'row',
