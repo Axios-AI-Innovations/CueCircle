@@ -3,6 +3,8 @@ import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Alert,
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useDispatch } from 'react-redux';
 import { authService, userService } from '@/utils/firebase';
+import { reload } from 'firebase/auth';
+import { auth } from '@/utils/supabase';
 import { setUser } from '@/store/slices/userSlice';
 import { router } from 'expo-router';
 import { User, Heart, ArrowLeft } from 'lucide-react-native';
@@ -26,6 +28,36 @@ export default function SignInScreen() {
     try {
       const userCredential = await authService.signIn(formData.email, formData.password);
       const user = userCredential.user;
+
+      console.log('Sign in attempt - Email verified:', user.emailVerified);
+
+      // Reload user to get latest verification status
+      await user.reload();
+      const currentUser = auth.currentUser;
+      
+      console.log('After reload - Email verified:', currentUser?.emailVerified);
+
+      // Check if email is verified
+      if (!currentUser?.emailVerified) {
+        console.log('Email not verified, showing alert');
+        Alert.alert(
+          'Email Not Verified',
+          'Please check your email and verify your account before signing in.',
+          [
+            {
+              text: 'OK',
+              onPress: () => {
+                // Sign out the user since they can't access the app
+                authService.signOut();
+              }
+            }
+          ]
+        );
+        return;
+      }
+
+      // Update Firestore document to reflect email verification
+      await authService.updateEmailVerificationStatus(currentUser.uid, true);
 
       // Get user data from Firebase
       const userData = await userService.getUser(user.uid);
@@ -52,6 +84,8 @@ export default function SignInScreen() {
         errorMessage = 'This account has been disabled';
       } else if (error.code === 'auth/network-request-failed') {
         errorMessage = 'Network error. Please check your connection';
+      } else if (error.code === 'auth/email-not-verified') {
+        errorMessage = 'Please check your email and verify your account before signing in';
       }
       
       Alert.alert('Sign In Failed', errorMessage);

@@ -39,6 +39,14 @@ export const updatePersonalProfile = createAsyncThunk(
   }
 );
 
+export const updateUserPreferences = createAsyncThunk(
+  'user/updatePreferences',
+  async ({ userId, preferences }: { userId: string; preferences: any }) => {
+    await userService.updateUser(userId, { preferences });
+    return preferences;
+  }
+);
+
 const userSlice = createSlice({
   name: 'user',
   initialState,
@@ -80,6 +88,11 @@ const userSlice = createSlice({
       .addCase(fetchUserProfile.rejected, (state, action) => {
         state.loading = false;
         state.error = action.error.message || 'Failed to fetch profile';
+      })
+      .addCase(updateUserPreferences.fulfilled, (state, action) => {
+        if (state.currentUser) {
+          state.currentUser.preferences = { ...state.currentUser.preferences, ...action.payload };
+        }
       });
   },
 });

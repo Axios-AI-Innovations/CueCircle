@@ -1,354 +1,249 @@
-import { 
-  collection, 
-  doc, 
-  getDoc, 
-  setDoc, 
-  updateDoc, 
-  addDoc,
-  query,
-  where,
-  orderBy,
-  limit,
-  getDocs,
-  serverTimestamp 
-} from 'firebase/firestore';
-import { db } from './supabase';
-import { XPSystem, Achievement, BonusPool } from '@/types/advanced';
+import { XPSystem, BonusPool } from '@/types/advanced';
 
-export interface XPGain {
-  id: string;
-  user_id: string;
-  amount: number;
-  source: string;
-  multiplier?: number;
-  created_at: string;
+export interface XPCalculation {
+  baseXP: number;
+  difficultyMultiplier: number;
+  energyMatchBonus: boolean;
+  timingBonus: boolean;
+  streakMultiplier: number;
+  podSupportBonus: boolean;
+  totalXP: number;
+  bonusPools: BonusPool[];
 }
 
-export interface AchievementDefinition {
-  id: string;
-  title: string;
-  description: string;
-  rarity: 'common' | 'rare' | 'epic' | 'legendary';
-  xp_reward: number;
-  category: 'consistency' | 'growth' | 'support' | 'resilience' | 'discovery';
-  requirements: {
-    type: 'streak' | 'total_completions' | 'consecutive_days' | 'energy_match' | 'pod_support';
-    value: number;
-    timeframe?: string;
-  }[];
-  icon: string;
-  color: string;
-}
+export const calculateXP = (
+  baseXP: number,
+  options: {
+    difficulty?: number;
+    energyMatch?: boolean;
+    timingBonus?: boolean;
+    streakMultiplier?: number;
+    podSupport?: boolean;
+    personalProfile?: any;
+  } = {}
+): XPCalculation => {
+  const {
+    difficulty = 1,
+    energyMatch = false,
+    timingBonus = false,
+    streakMultiplier = 1,
+    podSupport = false,
+    personalProfile
+  } = options;
 
-export const xpService = {
-  // Initialize XP system for a new user
-  async initializeXPSystem(userId: string): Promise<XPSystem> {
-    const xpSystem: XPSystem = {
-      user_id: userId,
-      total_xp: 0,
-      level: 1,
-      xp_to_next_level: 100,
-      streak_multiplier: 1,
-      bonus_pools: [],
-      achievements: [],
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    };
+  let totalXP = baseXP;
+  let difficultyMultiplier = 1;
+  const bonusPools: BonusPool[] = [];
 
-    const xpRef = doc(db, 'xp_systems', userId);
-    await setDoc(xpRef, {
-      ...xpSystem,
-      created_at: serverTimestamp(),
-      updated_at: serverTimestamp(),
+  // Difficulty multiplier (1.0x to 2.0x)
+  difficultyMultiplier = 1 + (difficulty - 1) * 0.2;
+  totalXP *= difficultyMultiplier;
+
+  // Energy match bonus (30% bonus)
+  if (energyMatch) {
+    totalXP *= 1.3;
+  }
+
+  // Timing bonus (20% bonus)
+  if (timingBonus) {
+    totalXP *= 1.2;
+  }
+
+  // Streak multiplier
+  totalXP *= streakMultiplier;
+
+  // Pod support bonus (15% bonus)
+  if (podSupport) {
+    totalXP *= 1.15;
+  }
+
+  // Create bonus pools based on conditions
+  if (energyMatch && personalProfile) {
+    bonusPools.push({
+      type: 'energy_match',
+      accumulated_xp: Math.floor(baseXP * 0.3),
+      multiplier: 1.5,
+      expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(), // 24 hours
     });
+  }
 
-    return xpSystem;
-  },
-
-  // Get user's XP system
-  async getXPSystem(userId: string): Promise<XPSystem | null> {
-    const xpRef = doc(db, 'xp_systems', userId);
-    const xpSnap = await getDoc(xpRef);
-    
-    if (xpSnap.exists()) {
-      return { id: xpSnap.id, ...xpSnap.data() } as XPSystem;
-    }
-    return null;
-  },
-
-  // Update XP system
-  async updateXPSystem(userId: string, xpSystem: Partial<XPSystem>): Promise<void> {
-    const xpRef = doc(db, 'xp_systems', userId);
-    await updateDoc(xpRef, {
-      ...xpSystem,
-      updated_at: serverTimestamp(),
+  if (timingBonus) {
+    bonusPools.push({
+      type: 'timing',
+      accumulated_xp: Math.floor(baseXP * 0.2),
+      multiplier: 1.3,
+      expires_at: new Date(Date.now() + 12 * 60 * 60 * 1000).toISOString(), // 12 hours
     });
-  },
+  }
 
-  // Award XP to user
-  async awardXP(userId: string, xpGain: Omit<XPGain, 'id' | 'user_id' | 'created_at'>): Promise<void> {
-    // Add XP gain record
-    const gainsRef = collection(db, 'xp_gains');
-    await addDoc(gainsRef, {
-      ...xpGain,
-      user_id: userId,
-      created_at: serverTimestamp(),
+  if (podSupport) {
+    bonusPools.push({
+      type: 'pod_support',
+      accumulated_xp: Math.floor(baseXP * 0.15),
+      multiplier: 1.2,
+      expires_at: new Date(Date.now() + 6 * 60 * 60 * 1000).toISOString(), // 6 hours
     });
+  }
 
-    // Update XP system
-    const xpSystem = await this.getXPSystem(userId);
-    if (xpSystem) {
-      const newTotalXP = xpSystem.total_xp + xpGain.amount;
-      const newLevel = this.calculateLevel(newTotalXP);
-      
-      await this.updateXPSystem(userId, {
-        total_xp: newTotalXP,
-        level: newLevel,
-        xp_to_next_level: this.calculateXPToNextLevel(newLevel),
-        updated_at: new Date().toISOString(),
-      });
-    }
-  },
-
-  // Get recent XP gains
-  async getRecentXPGains(userId: string, limitCount: number = 10): Promise<XPGain[]> {
-    const gainsRef = collection(db, 'xp_gains');
-    const q = query(
-      gainsRef,
-      where('user_id', '==', userId),
-      orderBy('created_at', 'desc'),
-      limit(limitCount)
-    );
-
-    const querySnapshot = await getDocs(q);
-    const gains: XPGain[] = [];
-    querySnapshot.forEach((doc) => {
-      gains.push({ id: doc.id, ...doc.data() } as XPGain);
+  // Consistency bonus pool (accumulates over time)
+  if (streakMultiplier > 1) {
+    bonusPools.push({
+      type: 'consistency',
+      accumulated_xp: Math.floor(baseXP * (streakMultiplier - 1)),
+      multiplier: streakMultiplier,
+      expires_at: new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString(), // 48 hours
     });
+  }
 
-    return gains;
-  },
-
-  // Unlock achievement
-  async unlockAchievement(userId: string, achievement: Achievement): Promise<void> {
-    // Add achievement to user's achievements
-    const achievementsRef = collection(db, 'user_achievements');
-    await addDoc(achievementsRef, {
-      user_id: userId,
-      achievement_id: achievement.id,
-      unlocked_at: serverTimestamp(),
-    });
-
-    // Update XP system with achievement
-    const xpSystem = await this.getXPSystem(userId);
-    if (xpSystem) {
-      const newAchievements = [...xpSystem.achievements, achievement];
-      const newTotalXP = xpSystem.total_xp + achievement.xp_reward;
-      const newLevel = this.calculateLevel(newTotalXP);
-
-      await this.updateXPSystem(userId, {
-        achievements: newAchievements,
-        total_xp: newTotalXP,
-        level: newLevel,
-        xp_to_next_level: this.calculateXPToNextLevel(newLevel),
-        updated_at: new Date().toISOString(),
-      });
-    }
-  },
-
-  // Check and unlock achievements based on user progress
-  async checkAchievements(userId: string, progressData: {
-    streak?: number;
-    totalCompletions?: number;
-    consecutiveDays?: number;
-    energyMatches?: number;
-    podSupport?: number;
-  }): Promise<Achievement[]> {
-    const achievements = await this.getAvailableAchievements();
-    const userAchievements = await this.getUserAchievements(userId);
-    const unlockedAchievements: Achievement[] = [];
-
-    for (const achievementDef of achievements) {
-      // Skip if already unlocked
-      if (userAchievements.some(ua => ua.achievement_id === achievementDef.id)) {
-        continue;
-      }
-
-      let shouldUnlock = true;
-      for (const requirement of achievementDef.requirements) {
-        let currentValue = 0;
-        
-        switch (requirement.type) {
-          case 'streak':
-            currentValue = progressData.streak || 0;
-            break;
-          case 'total_completions':
-            currentValue = progressData.totalCompletions || 0;
-            break;
-          case 'consecutive_days':
-            currentValue = progressData.consecutiveDays || 0;
-            break;
-          case 'energy_match':
-            currentValue = progressData.energyMatches || 0;
-            break;
-          case 'pod_support':
-            currentValue = progressData.podSupport || 0;
-            break;
-        }
-
-        if (currentValue < requirement.value) {
-          shouldUnlock = false;
-          break;
-        }
-      }
-
-      if (shouldUnlock) {
-        const achievement: Achievement = {
-          id: achievementDef.id,
-          title: achievementDef.title,
-          description: achievementDef.description,
-          rarity: achievementDef.rarity,
-          xp_reward: achievementDef.xp_reward,
-          unlocked_at: new Date().toISOString(),
-          category: achievementDef.category,
-          progress: 100,
-          max_progress: 100,
-        };
-
-        await this.unlockAchievement(userId, achievement);
-        unlockedAchievements.push(achievement);
-      }
-    }
-
-    return unlockedAchievements;
-  },
-
-  // Get available achievements
-  async getAvailableAchievements(): Promise<AchievementDefinition[]> {
-    // In a real app, this would fetch from Firestore
-    // For now, return predefined achievements
-    return [
-      {
-        id: 'first_habit',
-        title: 'Getting Started',
-        description: 'Complete your first habit',
-        rarity: 'common',
-        xp_reward: 50,
-        category: 'growth',
-        requirements: [{ type: 'total_completions', value: 1 }],
-        icon: '🎯',
-        color: '#48bb78',
-      },
-      {
-        id: 'streak_7',
-        title: 'Week Warrior',
-        description: 'Maintain a 7-day streak',
-        rarity: 'rare',
-        xp_reward: 200,
-        category: 'consistency',
-        requirements: [{ type: 'streak', value: 7 }],
-        icon: '🔥',
-        color: '#ed8936',
-      },
-      {
-        id: 'streak_30',
-        title: 'Monthly Master',
-        description: 'Maintain a 30-day streak',
-        rarity: 'epic',
-        xp_reward: 1000,
-        category: 'consistency',
-        requirements: [{ type: 'streak', value: 30 }],
-        icon: '👑',
-        color: '#805ad5',
-      },
-      {
-        id: 'pod_supporter',
-        title: 'Team Player',
-        description: 'Send 10 encouragements to your pod',
-        rarity: 'rare',
-        xp_reward: 300,
-        category: 'support',
-        requirements: [{ type: 'pod_support', value: 10 }],
-        icon: '🤝',
-        color: '#38a169',
-      },
-      {
-        id: 'energy_master',
-        title: 'Energy Optimizer',
-        description: 'Complete 20 habits during your peak energy times',
-        rarity: 'epic',
-        xp_reward: 500,
-        category: 'resilience',
-        requirements: [{ type: 'energy_match', value: 20 }],
-        icon: '⚡',
-        color: '#f6ad55',
-      },
-    ];
-  },
-
-  // Get user's achievements
-  async getUserAchievements(userId: string): Promise<Array<{ achievement_id: string; unlocked_at: string }>> {
-    const achievementsRef = collection(db, 'user_achievements');
-    const q = query(
-      achievementsRef,
-      where('user_id', '==', userId)
-    );
-
-    const querySnapshot = await getDocs(q);
-    const achievements: Array<{ achievement_id: string; unlocked_at: string }> = [];
-    querySnapshot.forEach((doc) => {
-      achievements.push(doc.data() as { achievement_id: string; unlocked_at: string });
-    });
-
-    return achievements;
-  },
-
-  // Helper functions
-  calculateLevel(totalXP: number): number {
-    return Math.floor(Math.sqrt(totalXP / 100)) + 1;
-  },
-
-  calculateXPToNextLevel(currentLevel: number): number {
-    const nextLevelXP = Math.pow(currentLevel, 2) * 100;
-    const currentLevelXP = Math.pow(currentLevel - 1, 2) * 100;
-    return nextLevelXP - currentLevelXP;
-  },
-
-  // Get leaderboard data
-  async getLeaderboard(limitCount: number = 10): Promise<Array<{
-    user_id: string;
-    total_xp: number;
-    level: number;
-    rank: number;
-  }>> {
-    const xpRef = collection(db, 'xp_systems');
-    const q = query(
-      xpRef,
-      orderBy('total_xp', 'desc'),
-      limit(limitCount)
-    );
-
-    const querySnapshot = await getDocs(q);
-    const leaderboard: Array<{
-      user_id: string;
-      total_xp: number;
-      level: number;
-      rank: number;
-    }> = [];
-
-    let rank = 1;
-    querySnapshot.forEach((doc) => {
-      const data = doc.data();
-      leaderboard.push({
-        user_id: doc.id,
-        total_xp: data.total_xp,
-        level: data.level,
-        rank: rank++,
-      });
-    });
-
-    return leaderboard;
-  },
+  return {
+    baseXP,
+    difficultyMultiplier,
+    energyMatch,
+    timingBonus,
+    streakMultiplier,
+    podSupportBonus: podSupport,
+    totalXP: Math.floor(totalXP),
+    bonusPools,
+  };
 };
 
-export default xpService;
+export const calculateStreakMultiplier = (streak: number): number => {
+  if (streak < 3) return 1;
+  if (streak < 7) return 1.2;
+  if (streak < 14) return 1.5;
+  if (streak < 30) return 2.0;
+  if (streak < 60) return 2.5;
+  return 3.0; // Max 3x multiplier
+};
+
+export const calculateLevel = (totalXP: number): number => {
+  // Exponential leveling: Level = floor(sqrt(totalXP / 100)) + 1
+  return Math.floor(Math.sqrt(totalXP / 100)) + 1;
+};
+
+export const calculateXPToNextLevel = (currentLevel: number): number => {
+  const nextLevelXP = Math.pow(currentLevel, 2) * 100;
+  const currentLevelXP = Math.pow(currentLevel - 1, 2) * 100;
+  return nextLevelXP - currentLevelXP;
+};
+
+export const getLevelProgress = (totalXP: number, currentLevel: number): number => {
+  const currentLevelXP = Math.pow(currentLevel - 1, 2) * 100;
+  const nextLevelXP = Math.pow(currentLevel, 2) * 100;
+  const progressXP = totalXP - currentLevelXP;
+  const levelXP = nextLevelXP - currentLevelXP;
+  return Math.min(progressXP / levelXP, 1);
+};
+
+export const getLevelTitle = (level: number): string => {
+  if (level < 5) return 'Beginner';
+  if (level < 10) return 'Explorer';
+  if (level < 20) return 'Builder';
+  if (level < 30) return 'Master';
+  if (level < 50) return 'Legend';
+  return 'Mythic';
+};
+
+export const getLevelColor = (level: number): string => {
+  if (level < 5) return '#48bb78'; // Green
+  if (level < 10) return '#805ad5'; // Purple
+  if (level < 20) return '#ed8936'; // Orange
+  if (level < 30) return '#e53e3e'; // Red
+  if (level < 50) return '#38a169'; // Teal
+  return '#f6ad55'; // Gold
+};
+
+export const shouldAwardBonusPool = (
+  xpSystem: XPSystem,
+  conditions: {
+    energyMatch?: boolean;
+    timingBonus?: boolean;
+    podSupport?: boolean;
+    streakLength?: number;
+  }
+): BonusPool[] => {
+  const bonusPools: BonusPool[] = [];
+
+  // Check if user already has these bonus pools
+  const existingTypes = xpSystem.bonus_pools.map(pool => pool.type);
+
+  if (conditions.energyMatch && !existingTypes.includes('energy_match')) {
+    bonusPools.push({
+      type: 'energy_match',
+      accumulated_xp: 50,
+      multiplier: 1.5,
+      expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+    });
+  }
+
+  if (conditions.timingBonus && !existingTypes.includes('timing')) {
+    bonusPools.push({
+      type: 'timing',
+      accumulated_xp: 30,
+      multiplier: 1.3,
+      expires_at: new Date(Date.now() + 12 * 60 * 60 * 1000).toISOString(),
+    });
+  }
+
+  if (conditions.podSupport && !existingTypes.includes('pod_support')) {
+    bonusPools.push({
+      type: 'pod_support',
+      accumulated_xp: 25,
+      multiplier: 1.2,
+      expires_at: new Date(Date.now() + 6 * 60 * 60 * 1000).toISOString(),
+    });
+  }
+
+  if (conditions.streakLength && conditions.streakLength >= 7 && !existingTypes.includes('consistency')) {
+    bonusPools.push({
+      type: 'consistency',
+      accumulated_xp: 100,
+      multiplier: 1.5,
+      expires_at: new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString(),
+    });
+  }
+
+  return bonusPools;
+};
+
+export const getXPBreakdown = (calculation: XPCalculation): string[] => {
+  const breakdown: string[] = [];
+  
+  breakdown.push(`Base XP: ${calculation.baseXP}`);
+  
+  if (calculation.difficultyMultiplier > 1) {
+    breakdown.push(`Difficulty Bonus: +${Math.round((calculation.difficultyMultiplier - 1) * 100)}%`);
+  }
+  
+  if (calculation.energyMatch) {
+    breakdown.push('Energy Match: +30%');
+  }
+  
+  if (calculation.timingBonus) {
+    breakdown.push('Timing Bonus: +20%');
+  }
+  
+  if (calculation.streakMultiplier > 1) {
+    breakdown.push(`Streak Multiplier: ${calculation.streakMultiplier.toFixed(1)}x`);
+  }
+  
+  if (calculation.podSupportBonus) {
+    breakdown.push('Pod Support: +15%');
+  }
+  
+  breakdown.push(`Total: ${calculation.totalXP} XP`);
+  
+  return breakdown;
+};
+
+export default {
+  calculateXP,
+  calculateStreakMultiplier,
+  calculateLevel,
+  calculateXPToNextLevel,
+  getLevelProgress,
+  getLevelTitle,
+  getLevelColor,
+  shouldAwardBonusPool,
+  getXPBreakdown,
+};

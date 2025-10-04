@@ -1,25 +1,79 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Switch, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useDispatch, useSelector } from 'react-redux';
-import { User, Settings, Moon, Palette, Vibrate, LogOut } from 'lucide-react-native';
+import { User, Settings, Moon, Palette, Vibrate, LogOut, Sun, Eye } from 'lucide-react-native';
 import { RootState } from '@/store';
-import { logout } from '@/store/slices/userSlice';
+import { logout, updateUserPreferences } from '@/store/slices/userSlice';
 import { authService } from '@/utils/firebase';
 import { router } from 'expo-router';
+import { useTheme } from '@/contexts/ThemeContext';
+import { createThemedStyles } from '@/utils/themeStyles';
 
 export default function ProfileScreen() {
   const dispatch = useDispatch();
-  const { currentUser } = useSelector((state: RootState) => state.user);
+  const { currentUser, personalProfile } = useSelector((state: RootState) => state.user);
+  const { habits, logs } = useSelector((state: RootState) => state.habits);
+  const { xpSystem } = useSelector((state: RootState) => state.xp);
+  const { currentTheme, themeName, setTheme } = useTheme();
+  
   const [preferences, setPreferences] = useState({
-    theme: 'dark',
-    font: 'default',
-    hapticsEnabled: true,
+    theme: currentUser?.preferences?.theme || 'light',
+    font: currentUser?.preferences?.font || 'default',
+    hapticsEnabled: currentUser?.preferences?.haptics_enabled || true,
     notifications: true,
   });
 
-  const updatePreference = (key: string, value: any) => {
-    setPreferences(prev => ({ ...prev, [key]: value }));
+  const styles = useMemo(() => createThemedStyles(currentTheme), [currentTheme]);
+
+  // Calculate real statistics
+  const activeHabits = habits.filter(habit => !habit.completed).length;
+  const totalLogs = logs.length;
+  const completedToday = logs.filter(log => {
+    const today = new Date().toDateString();
+    return new Date(log.completed_at).toDateString() === today;
+  }).length;
+  
+  // Calculate consistency (percentage of days with at least one habit completed)
+  const uniqueDays = new Set(logs.map(log => new Date(log.completed_at).toDateString())).size;
+  const daysSinceStart = currentUser?.created_at ? 
+    Math.ceil((Date.now() - new Date(currentUser.created_at).getTime()) / (1000 * 60 * 60 * 24)) : 1;
+  
+  // Handle new members and edge cases
+  let consistency;
+  if (logs.length === 0) {
+    consistency = "0%";
+  } else if (daysSinceStart < 2) {
+    consistency = "0%";
+  } else {
+    const percentage = Math.round((uniqueDays / Math.max(daysSinceStart, 1)) * 100);
+    consistency = `${percentage}%`;
+  }
+
+  const updatePreference = async (key: string, value: any) => {
+    const newPreferences = { ...preferences, [key]: value };
+    setPreferences(newPreferences);
+    
+    // Update theme if it's the theme preference
+    if (key === 'theme') {
+      setTheme(value);
+    }
+    
+    // Update Redux store and Firebase
+    if (currentUser) {
+      dispatch(updateUserPreferences({
+        userId: currentUser.id,
+        preferences: {
+          theme: newPreferences.theme,
+          font: newPreferences.font,
+          haptics_enabled: newPreferences.hapticsEnabled
+        }
+      }));
+    }
+  };
+
+  const handleThemeChange = (newTheme: string) => {
+    updatePreference('theme', newTheme);
   };
 
   const handleSignOut = () => {
@@ -62,13 +116,13 @@ export default function ProfileScreen() {
             style={styles.settingsButton}
             onPress={() => router.push('/profile-settings')}
           >
-            <Settings size={24} color="#a0aec0" />
+            <Settings size={24} color={styles.iconColor.color} />
           </TouchableOpacity>
         </View>
 
         <View style={styles.userSection}>
           <View style={styles.avatar}>
-            <User size={32} color="#ffffff" />
+            <User size={32} color={styles.avatarText.color} />
           </View>
           <View style={styles.userInfo}>
             <Text style={styles.userName}>{currentUser?.name || 'User'}</Text>
@@ -78,41 +132,62 @@ export default function ProfileScreen() {
 
         <View style={styles.statsGrid}>
           <View style={styles.statItem}>
-            <Text style={styles.statNumber}>12</Text>
+            <Text style={styles.statNumber}>{uniqueDays}</Text>
             <Text style={styles.statLabel}>Days Active</Text>
           </View>
           <View style={styles.statItem}>
-            <Text style={styles.statNumber}>3</Text>
+            <Text style={styles.statNumber}>{activeHabits}</Text>
             <Text style={styles.statLabel}>Active Habits</Text>
           </View>
           <View style={styles.statItem}>
-            <Text style={styles.statNumber}>85%</Text>
+            <Text style={styles.statNumber}>{consistency}</Text>
             <Text style={styles.statLabel}>Consistency</Text>
           </View>
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Accessibility Settings</Text>
+          <Text style={styles.sectionTitle}>Appearance & Accessibility</Text>
           
           <View style={styles.settingItem}>
             <View style={styles.settingInfo}>
               <View style={styles.settingIcon}>
-                <Palette size={20} color="#805ad5" />
+                <Sun size={20} color={styles.warningText.color} />
               </View>
               <View>
-                <Text style={styles.settingLabel}>High Contrast Mode</Text>
-                <Text style={styles.settingDescription}>Enhanced visibility</Text>
+                <Text style={styles.settingLabel}>Light Theme</Text>
+                <Text style={styles.settingDescription}>Softer colors, easier on the eyes</Text>
               </View>
             </View>
             <Switch
-              value={preferences.theme === 'high-contrast'}
+              value={themeName === 'light'}
               onValueChange={value => 
-                updatePreference('theme', value ? 'high-contrast' : 'dark')
+                handleThemeChange(value ? 'light' : 'dark')
               }
-              trackColor={{ false: '#4a5568', true: '#48bb78' }}
-              thumbColor="#ffffff"
+              trackColor={styles.switchTrack}
+              thumbColor={styles.switchThumb}
             />
           </View>
+
+          <View style={styles.settingItem}>
+            <View style={styles.settingInfo}>
+              <View style={styles.settingIcon}>
+                <Moon size={20} color={styles.accentText.color} />
+              </View>
+              <View>
+                <Text style={styles.settingLabel}>Dark Theme</Text>
+                <Text style={styles.settingDescription}>Dark mode for low-light environments</Text>
+              </View>
+            </View>
+            <Switch
+              value={themeName === 'dark'}
+              onValueChange={value => 
+                handleThemeChange(value ? 'dark' : 'light')
+              }
+              trackColor={styles.switchTrack}
+              thumbColor={styles.switchThumb}
+            />
+          </View>
+
 
           <View style={styles.settingItem}>
             <View style={styles.settingInfo}>
@@ -137,7 +212,7 @@ export default function ProfileScreen() {
           <View style={styles.settingItem}>
             <View style={styles.settingInfo}>
               <View style={styles.settingIcon}>
-                <Vibrate size={20} color="#ed8936" />
+                <Vibrate size={20} color={styles.warningText.color} />
               </View>
               <View>
                 <Text style={styles.settingLabel}>Haptic Feedback</Text>
@@ -174,7 +249,7 @@ export default function ProfileScreen() {
         </View>
 
         <TouchableOpacity style={styles.signOutButton} onPress={handleSignOut}>
-          <LogOut size={20} color="#e53e3e" />
+          <LogOut size={20} color={styles.errorText.color} />
           <Text style={styles.signOutText}>Sign Out</Text>
         </TouchableOpacity>
 
@@ -189,174 +264,4 @@ export default function ProfileScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#1a365d',
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 20,
-    paddingTop: 10,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: '800',
-    color: '#ffffff',
-  },
-  settingsButton: {
-    padding: 8,
-  },
-  userSection: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 20,
-    paddingTop: 0,
-  },
-  avatar: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: '#48bb78',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 16,
-  },
-  userInfo: {
-    flex: 1,
-  },
-  userName: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: '#ffffff',
-    marginBottom: 4,
-  },
-  userEmail: {
-    fontSize: 14,
-    color: '#a0aec0',
-  },
-  statsGrid: {
-    flexDirection: 'row',
-    paddingHorizontal: 20,
-    gap: 12,
-    marginBottom: 32,
-  },
-  statItem: {
-    flex: 1,
-    backgroundColor: '#2d3748',
-    borderRadius: 12,
-    padding: 16,
-    alignItems: 'center',
-  },
-  statNumber: {
-    fontSize: 24,
-    fontWeight: '800',
-    color: '#48bb78',
-    marginBottom: 4,
-  },
-  statLabel: {
-    fontSize: 12,
-    color: '#a0aec0',
-    textAlign: 'center',
-  },
-  section: {
-    marginBottom: 32,
-    paddingHorizontal: 20,
-  },
-  sectionTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#a0aec0',
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-    marginBottom: 16,
-  },
-  settingItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    backgroundColor: '#2d3748',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-  },
-  settingInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
-  settingIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#4a5568',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 16,
-  },
-  fontIcon: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#805ad5',
-  },
-  settingLabel: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#ffffff',
-    marginBottom: 2,
-  },
-  settingDescription: {
-    fontSize: 12,
-    color: '#a0aec0',
-  },
-  actionItem: {
-    backgroundColor: '#2d3748',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-  },
-  actionLabel: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#ffffff',
-    marginBottom: 2,
-  },
-  actionDescription: {
-    fontSize: 12,
-    color: '#a0aec0',
-  },
-  signOutButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#2d3748',
-    borderRadius: 12,
-    padding: 16,
-    marginHorizontal: 20,
-    marginBottom: 32,
-    gap: 8,
-  },
-  signOutText: {
-    color: '#e53e3e',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  footer: {
-    padding: 20,
-    paddingBottom: 100,
-    alignItems: 'center',
-  },
-  footerText: {
-    fontSize: 14,
-    color: '#a0aec0',
-    textAlign: 'center',
-    lineHeight: 20,
-    marginBottom: 8,
-  },
-  versionText: {
-    fontSize: 12,
-    color: '#718096',
-  },
-});
+// Styles are now handled by the theme system

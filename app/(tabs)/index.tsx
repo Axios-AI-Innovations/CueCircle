@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, ScrollView, StyleSheet, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useSelector } from 'react-redux';
@@ -9,12 +9,17 @@ import { Plus, Target, TrendingUp, Star, Shield, Zap, Trophy } from 'lucide-reac
 import { useDispatch } from 'react-redux';
 import { toggleCrisisMode, toggleHyperfocusMode } from '@/store/slices/userSlice';
 import { router } from 'expo-router';
+import { useTheme } from '@/contexts/ThemeContext';
+import { createThemedStyles } from '@/utils/themeStyles';
 
 export default function HomeScreen() {
   const dispatch = useDispatch();
   const { habits, logs } = useSelector((state: RootState) => state.habits);
   const { currentUser, personalProfile, crisisMode, hyperfocusMode } = useSelector((state: RootState) => state.user);
   const { xpSystem } = useSelector((state: RootState) => state.xp);
+  const { currentTheme } = useTheme();
+  
+  const styles = useMemo(() => createThemedStyles(currentTheme), [currentTheme]);
 
   // Get today's logs
   const todayLogs = logs.filter(log => {
@@ -76,7 +81,10 @@ export default function HomeScreen() {
             </Text>
             <Text style={styles.subtitle}>How are you feeling today?</Text>
           </View>
-          <XPDisplay showDetails={false} onPress={() => router.push('/achievements')} />
+          <XPDisplay showDetails={false} onPress={() => {
+            console.log('XP Display clicked!');
+            router.push('/xp-dashboard');
+          }} />
         </View>
 
         {/* Progress Overview */}
@@ -125,13 +133,13 @@ export default function HomeScreen() {
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Today's Habits</Text>
             <TouchableOpacity style={styles.addButton}>
-              <Plus size={20} color="#ffffff" />
+              <Plus size={20} color={styles.buttonText.color} />
             </TouchableOpacity>
           </View>
           
           {todayHabits.length === 0 ? (
             <View style={styles.emptyState}>
-              <Target size={48} color="#48bb78" />
+              <Target size={48} color={styles.emptyTitle.color} />
               <Text style={styles.emptyTitle}>Ready to build habits? 🌱</Text>
               <Text style={styles.emptyText}>
                 Start with one small habit and build momentum from there.
@@ -172,14 +180,14 @@ export default function HomeScreen() {
               style={styles.actionButton}
               onPress={() => router.push('/progress')}
             >
-              <Star size={24} color="#ed8936" />
+              <Star size={24} color={styles.statNumber.color} />
               <Text style={styles.actionButtonText}>Log Energy</Text>
             </TouchableOpacity>
             <TouchableOpacity 
               style={styles.actionButton}
               onPress={() => router.push('/progress')}
             >
-              <TrendingUp size={24} color="#805ad5" />
+              <TrendingUp size={24} color={styles.statNumber.color} />
               <Text style={styles.actionButtonText}>View Progress</Text>
             </TouchableOpacity>
           </View>
@@ -193,7 +201,7 @@ export default function HomeScreen() {
               style={[styles.modeButton, crisisMode && styles.activeModeButton]}
               onPress={() => dispatch(toggleCrisisMode())}
             >
-              <Shield size={20} color={crisisMode ? "#ffffff" : "#e53e3e"} />
+              <Shield size={20} color={crisisMode ? styles.buttonText.color : styles.errorText.color} />
               <Text style={[styles.modeButtonText, crisisMode && styles.activeModeButtonText]}>
                 Crisis Mode
               </Text>
@@ -206,7 +214,7 @@ export default function HomeScreen() {
               style={[styles.modeButton, hyperfocusMode && styles.activeModeButton]}
               onPress={() => dispatch(toggleHyperfocusMode())}
             >
-              <Zap size={20} color={hyperfocusMode ? "#ffffff" : "#ed8936"} />
+              <Zap size={20} color={hyperfocusMode ? styles.buttonText.color : styles.warningText.color} />
               <Text style={[styles.modeButtonText, hyperfocusMode && styles.activeModeButtonText]}>
                 Hyperfocus Mode
               </Text>
@@ -226,239 +234,8 @@ export default function HomeScreen() {
             </Text>
           </View>
         )}
+
       </ScrollView>
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#1a365d',
-  },
-  scrollView: {
-    flex: 1,
-  },
-  header: {
-    padding: 20,
-    paddingTop: 10,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-  },
-  greeting: {
-    fontSize: 28,
-    fontWeight: '800',
-    color: '#ffffff',
-    marginBottom: 4,
-  },
-  subtitle: {
-    fontSize: 16,
-    color: '#a0aec0',
-  },
-  progressCard: {
-    backgroundColor: '#2d3748',
-    marginHorizontal: 20,
-    marginBottom: 20,
-    borderRadius: 16,
-    padding: 20,
-  },
-  progressTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#ffffff',
-    marginBottom: 16,
-  },
-  progressStats: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 20,
-  },
-  statItem: {
-    alignItems: 'center',
-  },
-  statNumber: {
-    fontSize: 24,
-    fontWeight: '800',
-    color: '#48bb78',
-  },
-  statLabel: {
-    fontSize: 12,
-    color: '#a0aec0',
-    marginTop: 4,
-  },
-  progressBarContainer: {
-    gap: 8,
-  },
-  progressBar: {
-    height: 8,
-    backgroundColor: '#4a5568',
-    borderRadius: 4,
-    overflow: 'hidden',
-  },
-  progressBarFill: {
-    height: '100%',
-    backgroundColor: '#48bb78',
-    borderRadius: 4,
-  },
-  progressText: {
-    fontSize: 14,
-    color: '#a0aec0',
-    textAlign: 'center',
-  },
-  habitsSection: {
-    marginBottom: 20,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    marginBottom: 16,
-  },
-  sectionTitle: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: '#ffffff',
-  },
-  addButton: {
-    backgroundColor: '#48bb78',
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  emptyState: {
-    alignItems: 'center',
-    paddingVertical: 40,
-    paddingHorizontal: 20,
-  },
-  emptyTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#ffffff',
-    textAlign: 'center',
-    marginTop: 12,
-    marginBottom: 8,
-  },
-  emptyText: {
-    fontSize: 16,
-    color: '#a0aec0',
-    textAlign: 'center',
-    lineHeight: 24,
-  },
-  habitsList: {
-    gap: 12,
-    paddingHorizontal: 20,
-  },
-  viewAllButton: {
-    backgroundColor: '#2d3748',
-    padding: 16,
-    borderRadius: 12,
-    alignItems: 'center',
-    marginTop: 8,
-  },
-  viewAllText: {
-    color: '#a0aec0',
-    fontSize: 16,
-    fontWeight: '500',
-  },
-  quickActions: {
-    paddingHorizontal: 20,
-    marginBottom: 20,
-  },
-  actionButtons: {
-    flexDirection: 'row',
-    gap: 12,
-    marginTop: 16,
-  },
-  actionButton: {
-    flex: 1,
-    backgroundColor: '#2d3748',
-    padding: 20,
-    borderRadius: 12,
-    alignItems: 'center',
-    gap: 8,
-  },
-  actionButtonText: {
-    color: '#ffffff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  adhdStatus: {
-    backgroundColor: '#805ad520',
-    marginHorizontal: 20,
-    marginBottom: 20,
-    borderRadius: 12,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: '#805ad540',
-  },
-  adhdStatusTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#805ad5',
-    marginBottom: 4,
-  },
-  adhdStatusText: {
-    fontSize: 14,
-    color: '#a0aec0',
-    lineHeight: 20,
-  },
-  xpDisplay: {
-    alignItems: 'flex-end',
-    gap: 4,
-  },
-  xpLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#48bb78',
-  },
-  xpBar: {
-    width: 80,
-    height: 4,
-    backgroundColor: '#4a5568',
-    borderRadius: 2,
-    overflow: 'hidden',
-  },
-  xpBarFill: {
-    height: '100%',
-    backgroundColor: '#48bb78',
-    borderRadius: 2,
-  },
-  modeSection: {
-    paddingHorizontal: 20,
-    marginBottom: 20,
-  },
-  modeButtons: {
-    gap: 12,
-    marginTop: 16,
-  },
-  modeButton: {
-    backgroundColor: '#2d3748',
-    borderRadius: 12,
-    padding: 16,
-    alignItems: 'center',
-    gap: 8,
-    borderWidth: 2,
-    borderColor: 'transparent',
-  },
-  activeModeButton: {
-    backgroundColor: '#48bb7820',
-    borderColor: '#48bb78',
-  },
-  modeButtonText: {
-    color: '#a0aec0',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  activeModeButtonText: {
-    color: '#48bb78',
-  },
-  modeDescription: {
-    color: '#718096',
-    fontSize: 12,
-    textAlign: 'center',
-  },
-});

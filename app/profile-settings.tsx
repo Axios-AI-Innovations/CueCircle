@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useDispatch, useSelector } from 'react-redux';
@@ -6,11 +6,16 @@ import { router } from 'expo-router';
 import { Brain, Clock, Zap, Heart, Shield, Edit, Settings, ArrowLeft } from 'lucide-react-native';
 import { RootState } from '@/store';
 import { PersonalProfile } from '@/types/advanced';
+import { useTheme } from '@/contexts/ThemeContext';
+import { createThemedStyles } from '@/utils/themeStyles';
 
 export default function ProfileSettingsScreen() {
   const dispatch = useDispatch();
   const { personalProfile } = useSelector((state: RootState) => state.user);
+  const { currentTheme } = useTheme();
   const [isEditing, setIsEditing] = useState(false);
+  
+  const styles = useMemo(() => createThemedStyles(currentTheme), [currentTheme]);
 
   const handleEditProfile = () => {
     router.push('/auth/adhd-profile');
@@ -36,12 +41,12 @@ export default function ProfileSettingsScreen() {
 
   const getChallengeIcon = (type: string) => {
     switch (type) {
-      case 'executive_function': return <Brain size={20} color="#48bb78" />;
-      case 'time_blindness': return <Clock size={20} color="#805ad5" />;
-      case 'emotional_regulation': return <Heart size={20} color="#e53e3e" />;
-      case 'working_memory': return <Zap size={20} color="#ed8936" />;
-      case 'attention_regulation': return <Shield size={20} color="#38a169" />;
-      default: return <Brain size={20} color="#48bb78" />;
+      case 'executive_function': return <Brain size={20} color={styles.successText.color} />;
+      case 'time_blindness': return <Clock size={20} color={styles.accentText.color} />;
+      case 'emotional_regulation': return <Heart size={20} color={styles.errorText.color} />;
+      case 'working_memory': return <Zap size={20} color={styles.warningText.color} />;
+      case 'attention_regulation': return <Shield size={20} color={styles.successText.color} />;
+      default: return <Brain size={20} color={styles.successText.color} />;
     }
   };
 
@@ -94,14 +99,14 @@ export default function ProfileSettingsScreen() {
       <SafeAreaView style={styles.container}>
         <View style={styles.header}>
           <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-            <ArrowLeft size={24} color="#ffffff" />
+            <ArrowLeft size={24} color={styles.title.color} />
           </TouchableOpacity>
           <Text style={styles.title}>Personal Profile</Text>
           <View style={styles.headerSpacer} />
         </View>
         
         <View style={styles.emptyState}>
-          <Brain size={64} color="#48bb78" />
+          <Brain size={64} color={styles.emptyTitle.color} />
           <Text style={styles.emptyTitle}>No Profile Set Up</Text>
           <Text style={styles.emptySubtitle}>
             Create your personal profile to get personalized recommendations and accommodations.
@@ -113,16 +118,15 @@ export default function ProfileSettingsScreen() {
       </SafeAreaView>
     );
   }
-
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <ArrowLeft size={24} color="#ffffff" />
+          <ArrowLeft size={24} color={styles.title.color} />
         </TouchableOpacity>
         <Text style={styles.title}>Personal Profile</Text>
         <TouchableOpacity onPress={handleEditProfile} style={styles.editButton}>
-          <Edit size={20} color="#48bb78" />
+          <Edit size={20} color={styles.successText.color} />
         </TouchableOpacity>
       </View>
 
@@ -210,165 +214,3 @@ export default function ProfileSettingsScreen() {
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#1a365d',
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#2d3748',
-  },
-  backButton: {
-    padding: 8,
-  },
-  title: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#ffffff',
-    flex: 1,
-    textAlign: 'center',
-  },
-  editButton: {
-    padding: 8,
-  },
-  headerSpacer: {
-    width: 40, // Same width as back button to center title
-  },
-  scrollContent: {
-    padding: 20,
-  },
-  emptyState: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 40,
-  },
-  emptyTitle: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#ffffff',
-    marginTop: 20,
-    marginBottom: 12,
-    textAlign: 'center',
-  },
-  emptySubtitle: {
-    fontSize: 16,
-    color: '#a0aec0',
-    textAlign: 'center',
-    lineHeight: 24,
-    marginBottom: 32,
-  },
-  createButton: {
-    backgroundColor: '#48bb78',
-    paddingHorizontal: 32,
-    paddingVertical: 16,
-    borderRadius: 12,
-  },
-  createButtonText: {
-    color: '#ffffff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  section: {
-    marginBottom: 32,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#ffffff',
-    marginBottom: 16,
-  },
-  challengesList: {
-    gap: 12,
-  },
-  challengeItem: {
-    backgroundColor: '#2d3748',
-    borderRadius: 12,
-    padding: 16,
-  },
-  challengeHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  challengeIcon: {
-    marginRight: 12,
-  },
-  challengeInfo: {
-    flex: 1,
-  },
-  challengeTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#ffffff',
-    marginBottom: 4,
-  },
-  challengeSeverity: {
-    fontSize: 14,
-    color: '#a0aec0',
-  },
-  energyList: {
-    gap: 8,
-  },
-  energyItem: {
-    backgroundColor: '#2d3748',
-    borderRadius: 8,
-    padding: 12,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  energyTime: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#ffffff',
-  },
-  energyLevel: {
-    fontSize: 14,
-    color: '#a0aec0',
-  },
-  motivationList: {
-    gap: 8,
-  },
-  motivationItem: {
-    backgroundColor: '#2d3748',
-    borderRadius: 8,
-    padding: 12,
-  },
-  motivationTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#ffffff',
-    marginBottom: 4,
-  },
-  motivationEffectiveness: {
-    fontSize: 12,
-    color: '#a0aec0',
-  },
-  modesList: {
-    gap: 8,
-  },
-  modeItem: {
-    backgroundColor: '#2d3748',
-    borderRadius: 8,
-    padding: 12,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  modeTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#ffffff',
-  },
-  modeStatus: {
-    fontSize: 14,
-    color: '#a0aec0',
-  },
-});

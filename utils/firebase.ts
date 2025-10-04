@@ -22,6 +22,7 @@ import {
   createUserWithEmailAndPassword, 
   signOut,
   onAuthStateChanged,
+  sendEmailVerification,
   User
 } from 'firebase/auth';
 import { db, auth } from './supabase'; // Updated import
@@ -33,12 +34,16 @@ export const authService = {
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
     const user = userCredential.user;
     
+    // Send email verification
+    await sendEmailVerification(user);
+    
     // Create user document
     await setDoc(doc(db, 'users', user.uid), {
       ...userData,
       id: user.uid,
       email: user.email,
       created_at: serverTimestamp(),
+      email_verified: false,
       preferences: {
         theme: 'light',
         font: 'default',
@@ -61,6 +66,13 @@ export const authService = {
   async resetPassword(email: string) {
     const { sendPasswordResetEmail } = await import('firebase/auth');
     return await sendPasswordResetEmail(auth, email);
+  },
+
+  async updateEmailVerificationStatus(userId: string, verified: boolean) {
+    await updateDoc(doc(db, 'users', userId), {
+      email_verified: verified,
+      updated_at: serverTimestamp()
+    });
   },
 
   onAuthStateChange(callback: (user: User | null) => void) {

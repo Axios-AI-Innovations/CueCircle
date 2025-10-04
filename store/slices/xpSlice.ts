@@ -36,15 +36,18 @@ const xpSlice = createSlice({
   initialState,
   reducers: {
     initializeXPSystem: (state, action: PayloadAction<{ userId: string }>) => {
-      state.xpSystem = {
-        user_id: action.payload.userId,
-        total_xp: 0,
-        level: 1,
-        xp_to_next_level: 100,
-        streak_multiplier: 1,
-        bonus_pools: [],
-        achievements: [],
-      };
+      // Only initialize if not already initialized or if user_id is different
+      if (!state.xpSystem || state.xpSystem.user_id !== action.payload.userId) {
+        state.xpSystem = {
+          user_id: action.payload.userId,
+          total_xp: 0,
+          level: 1,
+          xp_to_next_level: 100,
+          streak_multiplier: 1,
+          bonus_pools: [],
+          achievements: [],
+        };
+      }
     },
     awardXP: (state, action: PayloadAction<{
       baseXP: number;
@@ -75,10 +78,12 @@ const xpSlice = createSlice({
       
       totalXP = Math.floor(baseXP * multiplier);
       
+      
       const previousLevel = state.xpSystem.level;
       state.xpSystem.total_xp += totalXP;
       state.xpSystem.level = calculateLevel(state.xpSystem.total_xp);
       state.xpSystem.xp_to_next_level = calculateXPToNextLevel(state.xpSystem.level);
+      
       
       // Check for level up
       if (state.xpSystem.level > previousLevel) {
@@ -157,6 +162,20 @@ const xpSlice = createSlice({
     clearAchievementNotification: (state) => {
       state.achievementUnlocked = null;
     },
+    resetXPSystem: (state, action: PayloadAction<{ userId: string }>) => {
+      state.xpSystem = {
+        user_id: action.payload.userId,
+        total_xp: 0,
+        level: 1,
+        xp_to_next_level: 100,
+        streak_multiplier: 1,
+        bonus_pools: [],
+        achievements: [],
+      };
+      state.recentXPGains = [];
+      state.levelUpAnimation = false;
+      state.achievementUnlocked = null;
+    },
   },
 });
 
@@ -169,6 +188,7 @@ export const {
   updateStreakMultiplier,
   clearLevelUpAnimation,
   clearAchievementNotification,
+  resetXPSystem,
 } = xpSlice.actions;
 
 export default xpSlice.reducer;

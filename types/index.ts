@@ -4,8 +4,9 @@ export interface User {
   name: string;
   pod_id?: string;
   created_at: string;
+  email_verified?: boolean;
   preferences: {
-    theme: 'light' | 'dark' | 'high-contrast';
+    theme: 'light' | 'dark';
     font: 'default' | 'dyslexia-friendly';
     haptics_enabled: boolean;
   };

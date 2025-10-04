@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Modal } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Plus, Heart } from 'lucide-react-native';
@@ -10,6 +10,8 @@ import { EnhancedRewardSystem } from '@/components/EnhancedRewardSystem';
 import { MicroReward } from '@/types/microHabits';
 import { logHabitCompletion } from '@/store/slices/habitsSlice';
 import { awardXP, initializeXPSystem } from '@/store/slices/xpSlice';
+import { useTheme } from '@/contexts/ThemeContext';
+import { createThemedStyles } from '@/utils/themeStyles';
 
 export default function HabitsScreen() {
   const dispatch = useDispatch<AppDispatch>();
@@ -18,6 +20,9 @@ export default function HabitsScreen() {
   const { habits, logs } = useSelector((state: RootState) => state.habits);
   const { currentUser } = useSelector((state: RootState) => state.user);
   const { xpSystem } = useSelector((state: RootState) => state.xp);
+  const { currentTheme } = useTheme();
+  
+  const styles = useMemo(() => createThemedStyles(currentTheme), [currentTheme]);
   
   const todayLogs = logs.filter(log => {
     const today = new Date().toDateString();
@@ -87,14 +92,14 @@ export default function HabitsScreen() {
             style={styles.addButton}
             onPress={() => setShowWizard(true)}
           >
-            <Plus size={20} color="#ffffff" />
+            <Plus size={20} color={styles.addButtonText.color} />
           </TouchableOpacity>
         </View>
 
         <View style={styles.content}>
           {habits.length === 0 ? (
             <View style={styles.emptyState}>
-              <Heart size={48} color="#48bb78" />
+              <Heart size={48} color={styles.emptyTitle.color} />
               <Text style={styles.emptyTitle}>Start small, build steady 🌱</Text>
               <Text style={styles.emptyText}>
                 Create habits that work with your brain, not against it. Every small step counts.
@@ -103,7 +108,7 @@ export default function HabitsScreen() {
                 style={styles.startButton}
                 onPress={() => setShowWizard(true)}
               >
-                <Plus size={20} color="#ffffff" />
+                <Plus size={20} color={styles.startButtonText.color} />
                 <Text style={styles.startButtonText}>Create Your First Habit</Text>
               </TouchableOpacity>
             </View>
@@ -154,147 +159,3 @@ export default function HabitsScreen() {
     </>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#1a365d',
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 20,
-    paddingTop: 10,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: '800',
-    color: '#ffffff',
-  },
-  headerButtons: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  addButton: {
-    backgroundColor: '#48bb78',
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  microGoalButton: {
-    backgroundColor: '#805ad5',
-  },
-  content: {
-    flex: 1,
-    paddingHorizontal: 20,
-  },
-  emptyState: {
-    alignItems: 'center',
-    paddingVertical: 60,
-  },
-  emptyTitle: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#ffffff',
-    textAlign: 'center',
-    marginBottom: 12,
-  },
-  emptyText: {
-    fontSize: 16,
-    color: '#a0aec0',
-    textAlign: 'center',
-    lineHeight: 24,
-    marginBottom: 32,
-    maxWidth: 320,
-  },
-  startButton: {
-    backgroundColor: '#805ad5',
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 32,
-    paddingVertical: 16,
-    borderRadius: 12,
-    gap: 8,
-    marginBottom: 16,
-  },
-  startButtonText: {
-    color: '#ffffff',
-    fontSize: 18,
-    fontWeight: '600',
-  },
-  simpleButton: {
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-  },
-  simpleButtonText: {
-    color: '#a0aec0',
-    fontSize: 14,
-    textDecorationLine: 'underline',
-  },
-  goalSection: {
-    marginBottom: 32,
-  },
-  goalHeader: {
-    backgroundColor: '#2d3748',
-    borderRadius: 16,
-    padding: 20,
-    marginHorizontal: 20,
-    marginBottom: 12,
-  },
-  goalInfo: {
-    marginBottom: 12,
-  },
-  goalTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#ffffff',
-    marginBottom: 4,
-  },
-  goalProgress: {
-    fontSize: 14,
-    color: '#a0aec0',
-  },
-  goalProgressBar: {
-    height: 8,
-    backgroundColor: '#4a5568',
-    borderRadius: 4,
-    overflow: 'hidden',
-  },
-  goalProgressFill: {
-    height: '100%',
-    backgroundColor: '#805ad5',
-    borderRadius: 4,
-  },
-  modalContainer: {
-    flex: 1,
-    backgroundColor: '#1a365d',
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    padding: 20,
-    paddingTop: 60,
-  },
-  closeButton: {
-    padding: 8,
-  },
-  habitsContainer: {
-    flex: 1,
-  },
-  modalContainer: {
-    flex: 1,
-    backgroundColor: '#1a365d',
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    padding: 20,
-    paddingTop: 60,
-  },
-  closeButton: {
-    padding: 8,
-  },
-});

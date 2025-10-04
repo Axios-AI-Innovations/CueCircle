@@ -1,13 +1,18 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useSelector } from 'react-redux';
 import { RootState } from '@/store';
 import { ConstellationView } from '@/components/ConstellationView';
 import { Calendar, TrendingUp, Award } from 'lucide-react-native';
+import { useTheme } from '@/contexts/ThemeContext';
+import { createThemedStyles } from '@/utils/themeStyles';
 
 export default function ProgressScreen() {
   const { logs } = useSelector((state: RootState) => state.habits);
+  const { currentTheme } = useTheme();
+  
+  const styles = useMemo(() => createThemedStyles(currentTheme), [currentTheme]);
   
   // Calculate consistency percentage (last 30 days)
   const last30Days = Array.from({ length: 30 }, (_, i) => {
@@ -63,92 +68,3 @@ export default function ProgressScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#1a365d',
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 20,
-    paddingTop: 10,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: '800',
-    color: '#ffffff',
-  },
-  viewToggle: {
-    flexDirection: 'row',
-    backgroundColor: '#2d3748',
-    borderRadius: 12,
-    padding: 4,
-  },
-  toggleButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 8,
-    minWidth: 60,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  activeToggle: {
-    backgroundColor: '#48bb78',
-  },
-  toggleText: {
-    color: '#a0aec0',
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  activeToggleText: {
-    color: '#ffffff',
-  },
-  statsContainer: {
-    flexDirection: 'row',
-    paddingHorizontal: 20,
-    gap: 16,
-    marginBottom: 24,
-  },
-  statCard: {
-    flex: 1,
-    backgroundColor: '#2d3748',
-    borderRadius: 16,
-    padding: 20,
-    alignItems: 'center',
-    gap: 8,
-  },
-  statNumber: {
-    fontSize: 32,
-    fontWeight: '800',
-    color: '#ffffff',
-  },
-  statLabel: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#a0aec0',
-  },
-  statSubtext: {
-    fontSize: 12,
-    color: '#718096',
-  },
-  encouragementContainer: {
-    backgroundColor: '#2d3748',
-    marginHorizontal: 20,
-    marginBottom: 20,
-    borderRadius: 16,
-    padding: 20,
-  },
-  encouragementTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#48bb78',
-    marginBottom: 12,
-  },
-  encouragementText: {
-    fontSize: 16,
-    color: '#a0aec0',
-    lineHeight: 24,
-  },
-});

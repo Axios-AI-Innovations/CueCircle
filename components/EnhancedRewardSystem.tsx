@@ -189,10 +189,7 @@ export function EnhancedRewardSystem({ reward, onAnimationComplete }: EnhancedRe
   const getRarityGlow = () => {
     const color = getRarityColor();
     return {
-      shadowColor: color,
-      shadowOffset: { width: 0, height: 0 },
-      shadowOpacity: 0.8,
-      shadowRadius: 20,
+      boxShadow: `0 0 20px ${color}80`,
       elevation: 20,
     };
   };

@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, Animated } from 'react-native
 import { useDispatch, useSelector } from 'react-redux';
 import { Star, Trophy, Zap, Target, Users } from 'lucide-react-native';
 import { RootState } from '@/store';
-import { clearLevelUpAnimation, clearAchievementNotification } from '@/store/slices/xpSlice';
+import { clearLevelUpAnimation, clearAchievementNotification, initializeXPSystem } from '@/store/slices/xpSlice';
 
 interface XPDisplayProps {
   showDetails?: boolean;
@@ -12,8 +12,18 @@ interface XPDisplayProps {
 
 export default function XPDisplay({ showDetails = false, onPress }: XPDisplayProps) {
   const dispatch = useDispatch();
-  const { xpSystem, levelUpAnimation, achievementUnlocked } = useSelector((state: RootState) => state.xp);
+  const { xpSystem, levelUpAnimation, achievementUnlocked } = useSelector((state: RootState) => state.xp || {});
+  const { currentUser } = useSelector((state: RootState) => state.user || {});
   const scaleAnim = React.useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    console.log('XPDisplay: currentUser:', currentUser);
+    console.log('XPDisplay: xpSystem:', xpSystem);
+    if (currentUser && !xpSystem) {
+      console.log('XPDisplay: Initializing XP system for user:', currentUser.id);
+      dispatch(initializeXPSystem({ userId: currentUser.id }));
+    }
+  }, [currentUser, xpSystem, dispatch]);
 
   useEffect(() => {
     if (levelUpAnimation) {
@@ -22,12 +32,12 @@ export default function XPDisplay({ showDetails = false, onPress }: XPDisplayPro
         Animated.timing(scaleAnim, {
           toValue: 1.2,
           duration: 200,
-          useNativeDriver: true,
+          useNativeDriver: false,
         }),
         Animated.timing(scaleAnim, {
           toValue: 1,
           duration: 200,
-          useNativeDriver: true,
+          useNativeDriver: false,
         }),
       ]).start();
 
@@ -46,24 +56,47 @@ export default function XPDisplay({ showDetails = false, onPress }: XPDisplayPro
     );
   }
 
-  const progressPercentage = ((xpSystem.total_xp - Math.pow(xpSystem.level - 1, 2) * 100) / xpSystem.xp_to_next_level) * 100;
+  // Additional safety check for corrupted XP system - but don't block rendering
+  if (xpSystem.total_xp === null || xpSystem.level === null || xpSystem.xp_to_next_level === null) {
+    console.log('XPDisplay: XP system has null values, reinitializing...');
+    if (currentUser) {
+      dispatch(initializeXPSystem({ userId: currentUser.id }));
+    }
+    // Don't return early - let the component render with fallback values
+  }
+
+  
+  // Safety check for NaN and null values
+  const safeTotalXP = (xpSystem.total_xp === null || xpSystem.total_xp === undefined || isNaN(xpSystem.total_xp)) ? 0 : Number(xpSystem.total_xp);
+  const safeLevel = (xpSystem.level === null || xpSystem.level === undefined || isNaN(xpSystem.level)) ? 1 : Number(xpSystem.level);
+  const safeXPToNext = (xpSystem.xp_to_next_level === null || xpSystem.xp_to_next_level === undefined || isNaN(xpSystem.xp_to_next_level)) ? 100 : Number(xpSystem.xp_to_next_level);
+  
+  const progressPercentage = Math.max(0, Math.min(100, ((safeTotalXP - Math.pow(safeLevel - 1, 2) * 100) / safeXPToNext) * 100));
+
 
   return (
     <TouchableOpacity 
       style={[styles.container, levelUpAnimation && styles.levelUpContainer]} 
       onPress={onPress}
       disabled={!onPress}
+      activeOpacity={onPress ? 0.7 : 1}
     >
       <Animated.View style={[styles.xpCard, { transform: [{ scale: scaleAnim }] }]}>
         <View style={styles.xpHeader}>
           <View style={styles.levelInfo}>
-            <Text style={styles.levelText}>Level {xpSystem.level}</Text>
-            <Text style={styles.xpText}>{xpSystem.total_xp.toLocaleString()} XP</Text>
+            <Text style={styles.levelText}>Level {safeLevel}</Text>
+            <Text style={styles.xpText}>{typeof safeTotalXP === 'number' ? safeTotalXP.toLocaleString() : '0'} XP</Text>
           </View>
           <View style={styles.levelIcon}>
             <Star size={24} color="#f6ad55" />
           </View>
         </View>
+        
+        {onPress && (
+          <View style={styles.tapIndicator}>
+            <Text style={styles.tapText}>Tap to view details</Text>
+          </View>
+        )}
 
         {showDetails && (
           <>
@@ -77,7 +110,7 @@ export default function XPDisplay({ showDetails = false, onPress }: XPDisplayPro
                 />
               </View>
               <Text style={styles.progressText}>
-                {Math.floor(progressPercentage)}% to Level {xpSystem.level + 1}
+                {Math.floor(Math.max(0, Math.min(100, progressPercentage)))}% to Level {safeLevel + 1}
               </Text>
             </View>
 
@@ -224,10 +257,7 @@ const styles = StyleSheet.create({
     padding: 16,
     flexDirection: 'row',
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
+    boxShadow: '0 4px 8px rgba(0, 0, 0, 0.3)',
     elevation: 8,
   },
   achievementIcon: {
@@ -273,5 +303,14 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontSize: 16,
     fontWeight: '600',
+  },
+  tapIndicator: {
+    marginTop: 8,
+    alignItems: 'center',
+  },
+  tapText: {
+    fontSize: 12,
+    color: '#a0aec0',
+    fontStyle: 'italic',
   },
 });

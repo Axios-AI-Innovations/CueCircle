@@ -71,28 +71,15 @@ export default function SignUpScreen() {
         }
       });
 
-      // Set user in Redux store
-      dispatch(setUser({
-        id: user.uid,
-        email: user.email || '',
-        name: formData.name.trim(),
-        created_at: new Date().toISOString(),
-        preferences: {
-          theme: 'light',
-          font: 'default',
-          haptics_enabled: true,
-        }
-      }));
+      // Sign out the user immediately after signup since they need to verify email
+      await authService.signOut();
+
+      // Redirect to sign in page immediately
+      router.replace('/auth/signin');
 
       Alert.alert(
-        'Welcome to CueCircle! 🌟',
-        'Your account has been created successfully.',
-        [
-          {
-            text: 'Continue',
-            onPress: () => router.replace('/(tabs)')
-          }
-        ]
+        'Account Created! 🎉',
+        'Please check your email and verify your account, then sign in.'
       );
     } catch (error: any) {
       console.error('Sign up error:', error);
